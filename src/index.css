@@ -1,0 +1,136 @@
+#root {
+  width: 100vw;
+  height: 100dvh;
+}
+
+body {
+  margin: 0;
+  font-family: 'Gothic A1', sans-serif;
+}
+
+/* index.css */
+.bg-hero {
+  background-image: url("/backgrounds/space-hall.jpg"); /* put image in public/backgrounds */
+  background-size: cover;
+  background-position: center;
+}
+
+/* 2D waypoint ring (DOM) */
+.wp2d {
+  position: relative;
+  border-radius: 9999px;
+  border: 2px solid rgba(255,255,255,0.25);
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(255,255,255,0.95) 0%,
+      rgba(255,255,255,0.95) 18%,
+      transparent 19%),
+    radial-gradient(circle at 50% 50%,
+      var(--wp-color, #17a589) 22%,
+      var(--wp-color, #17a589) 32%,
+      transparent 33% 100%);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+  cursor: pointer;
+  user-select: none;
+}
+.wp2d::before,
+.wp2d::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 3px solid var(--wp-color, #17a589);
+  opacity: 0.6;
+  animation: wp-ripple 2.6s linear infinite;
+}
+.wp2d::after {
+  animation-delay: 1.3s;
+}
+.wp2d.active {
+  background:  #015BBB;
+}
+.wp2d.active::before,
+.wp2d.active::after {
+  content: none !important;
+}
+
+@keyframes wp-ripple {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0;   }
+}
+.wp2d:hover {
+  filter: brightness(1.05);
+}
+
+@media (orientation: portrait){
+  body::before{
+    content: "\A\A\APlease rotate to landscape view for better experience\A(Ensure Auto-Rotation option is enabled in your device)";
+    white-space: pre-line;
+    display: block;
+    position: fixed;
+    font-size: 2vh;
+    z-index: 1400;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    color: #fff;
+    text-align: center;
+    align-content: center;
+    align-items: center;
+    overflow: hidden;
+    touch-action: none;
+    pointer-events: none;
+  }
+  body::after{
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1401;                
+    pointer-events: none;         
+    background: url("/images/AutoRotate.png") no-repeat
+                center calc(50% - 9vh); 
+    background-size: 64px 64px;   
+  }
+
+}
+
+.fs-cta {
+  position: fixed;
+  left: 90%;
+  bottom: 1.5vh;
+  width: 10vw;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.9rem 1.25rem;
+  border-radius: 999px;
+  border: 0.8px solid rgba(158,199,255,0.9);
+  background: rgba(0,63,145,0.31);
+  color: #fff;
+  font: 600 16px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* -------- Mobile/touch scrolling utilities -------- */
+.mobile-scroll {
+  -webkit-overflow-scrolling: touch; /* iOS momentum */
+  overscroll-behavior: contain;      /* avoid page bounce while scrolling lists */
+}
+.hide-scrollbar {
+  scrollbar-width: none;             /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;                     /* WebKit */
+}
+
+/* Optional: globally tame page overscroll on touch UIs */
+@media (hover: none), (pointer: coarse) {
+  html, body {
+    overscroll-behavior-y: none;
+  }
+}

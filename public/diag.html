@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Diag</title>
+<pre id="o" style="font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.4"></pre>
+<script type="module">
+    const out = (s) => (document.getElementById('o').textContent += s + '\n');
+
+    out('UA: ' + navigator.userAgent);
+    out('DPR: ' + window.devicePixelRatio);
+
+    // WebGL availability
+    try {
+        const c = document.createElement('canvas');
+        out('WebGL available: ' + !!(c.getContext('webgl2') || c.getContext('webgl')));
+    } catch (e) { out('WebGL probe error: ' + e); }
+
+    // Static fetch (checks headers like content-encoding)
+    try {
+        const r = await fetch('/version.txt', { cache: 'no-store' });
+        out('version.txt status: ' + r.status + ', encoding: ' + (r.headers.get('content-encoding')||'(none)'));
+    } catch (e) { out('version fetch ERR: ' + e); }
+
+    // Dynamic import (catches chunk path/encoding issues)
+    try {
+        await import('/diag-probe.js');
+        out('dynamic import: OK');
+    } catch (e) {
+        out('dynamic import: FAIL -> ' + (e?.message || e));
+    }
+</script>

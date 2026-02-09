@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ignition Center</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Fullscreen CTA for Android -->
+    <!-- <button id="enter-fs" class="fs-cta" type="button" hidden>Go Fullscreen</button>
+
+    <script>
+    function fullscreenElement() {
+      return document.fullscreenElement
+        || document.webkitFullscreenElement
+        || document.msFullscreenElement
+        || null;
+    }
+    function fullscreenEnabled() {
+      return document.fullscreenEnabled
+        || document.webkitFullscreenEnabled
+        || document.msFullscreenEnabled
+        || false;
+    }
+    function requestFsTarget() {
+      // Choose an element that safely supports fullscreen.
+      // html is broadly supported; fallback to body/root if needed.
+      return document.documentElement
+        || document.getElementById('root')
+        || document.body;
+    }
+    function requestFsFn(el) {
+      return el.requestFullscreen
+        || el.webkitRequestFullscreen
+        || el.msRequestFullscreen
+        || null;
+    }
+    function exitFsFn() {
+      return document.exitFullscreen
+        || document.webkitExitFullscreen
+        || document.msExitFullscreen
+        || null;
+    }
+    function isStandalonePWA() {
+      // iOS Safari sets navigator.standalone; others expose display-mode
+      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+        || (typeof navigator !== 'undefined' && 'standalone' in navigator && navigator.standalone);
+    }
+    function canOfferFullscreen() {
+      // Offer only if the API exists, is enabled, and we're not in standalone PWA
+      const el = requestFsTarget();
+      return !!requestFsFn(el) && fullscreenEnabled() && !isStandalonePWA();
+    }
+
+    async function enterFullscreen() {
+      const el = requestFsTarget();
+      const req = requestFsFn(el);
+      if (!req) return;
+      try {
+        // Some engines ignore options; it's fine to pass them.
+        await req.call(el, { navigationUI: 'hide' });
+      } catch (e) {
+        // Swallow; some contexts (WebViews) disallow.
+      }
+      // Orientation lock is allowed only after a user gesture & in fullscreen.
+      if (screen.orientation && screen.orientation.lock) {
+        try { await screen.orientation.lock('landscape'); } catch (e) {}
+      }
+    }
+    
+    async function exitFullscreen() {
+      const exit = exitFsFn();
+      if (!exit) return;
+      try {
+        await exit.call(document);
+      } catch (e) {
+        // Ignore failures (some WebViews / embeds).
+      }
+      if (screen.orientation && screen.orientation.unlock) {
+        try { screen.orientation.unlock(); } catch (e) {}
+      }
+    }
+
+    function updateCta(btn) {
+      const fsActive = !!fullscreenElement();
+      btn.hidden = !canOfferFullscreen();
+      btn.textContent = fsActive ? 'Exit Fullscreen' : 'Go Fullscreen';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('enter-fs');
+      if (!btn) return;
+
+      // Initialize state
+      updateCta(btn);
+
+      // Click handler must be a user gesture
+      btn.addEventListener('click', () => {
+        if (fullscreenElement()) {
+          exitFullscreen();
+        } else {
+          enterFullscreen();
+        }
+      }, { passive: true });
+
+      // Respond to FS state changes (standard + prefixed)
+      const onFsChange = () => updateCta(btn);
+      document.addEventListener('fullscreenchange', onFsChange);
+      document.addEventListener('webkitfullscreenchange', onFsChange);
+      document.addEventListener('msfullscreenchange', onFsChange);
+
+      // Also react when the browser toggles bars / orientation
+      window.addEventListener('orientationchange', () => updateCta(btn));
+      window.addEventListener('resize', () => updateCta(btn));
+      document.addEventListener('visibilitychange', () => updateCta(btn));
+    });
+  </script> -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
