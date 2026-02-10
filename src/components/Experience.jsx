@@ -1139,8 +1139,14 @@ export const Experience = forwardRef(
           if (hits.length > 0) blocked = true;
         }
         if (!blocked) {
+          const currentY = avatarRef.current.position.y;
           avatarRef.current.position.add(step);
-          avatarRef.current.position.y = 0; // stay grounded
+          if (currentY > 2.0) {
+            avatarRef.current.position.y = 3.5; // Stay on First Floor
+          } else {
+            avatarRef.current.position.y = 0;   // Stay on Ground Floor
+          }
+          //avatarRef.current.position.y = 0; // stay grounded
         }
       }
 

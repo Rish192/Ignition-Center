@@ -101,6 +101,7 @@ import ChangeView from "./components/ChangeView";
 import InnerStepBack from "./components/InnerStepBack";
 import SettingsButton from "./components/SettingsButton";
 import LandingPage from './components/LandingPage';
+import FadeOverlay from "./components/FadeOverlay";
 
 const RED_IFRAME_SOURCES = {
   "RHS_1": "https://spo-global.kpmg.com/sites/GO-OI-BUS-GTK-AI/SitePages/Global-AI-credentials.aspx",
@@ -262,6 +263,7 @@ function App() {
   const [isBlockMiniHotspots, setIsBlockMiniHotspots] = useState(false); //to block mini_conference_hotspots in some other cases
   const [kicked, setKicked] = useState(false);
   const [selectedHotspotId, setSelectedHotspotId] = useState(RED_HOTSPOTS[0]?.id); //to track which hotspot is selected in AI Left Area
+  const [isFading, setIsFading] = useState(false); //to trigger fade effect when teleporting
 
   const [isScreenShared, setIsScreenShared] = useState(false);
   const isMeetingActive = !!activeRoom;
@@ -602,28 +604,41 @@ function App() {
   }, [activeRoom]);
 
   // helper to teleport
-  const teleportTo = (spawn, aim = null, wpId = null) => {
-    expRef.current?.teleportTo({
-      x: spawn.x,
-      y: spawn.y ?? 0,
-      z: spawn.z,
-      duration: GLIDE,
-      ...(aim ? { lookAt: aim } : {}),
-    });
+  const teleportTo = async (spawn, aim = null, wpId = null) => {
+    const isBlinkPoint = (wpId === "H" || wpId === "I");
 
-    setHiddenWpId(wpId);
-    setShowHotspots(wpId === "C" || wpId === "D" || wpId === "A" || wpId === "B" || wpId === "F" || wpId === "E" || wpId === "G");
-    setHiddenHotspotId(null);
-
-    if (wpId === "F") {
-      //setCameraFov(50); //45
-      //setOverlay("roomslobby");
-      //setHideUI(true);
-      setPointerEnabled(false);
+    if (isBlinkPoint) {
+      setIsFading(true);
+      await new Promise((res) => setTimeout(res, 500));
+      expRef.current?.teleportTo({
+        x: spawn.x,
+        y: spawn.y ?? 0,
+        z: spawn.z,
+        duration: 0,
+        ...(aim ? { lookAt: aim } : {}),
+      });
+      setHiddenWpId(wpId);
+      setShowHotspots(wpId === "C" || wpId === "D" || wpId === "A" || wpId === "B" || wpId === "F" || wpId === "E" || wpId === "G");
+      setHiddenHotspotId(null);
+      setIsFading(false);
     } else {
-      //setCameraFov(50); //change
-      //setHideUI(false);
-      setPointerEnabled(true);
+      expRef.current?.teleportTo({
+        x: spawn.x,
+        y: spawn.y ?? 0,
+        z: spawn.z,
+        duration: GLIDE,
+        ...(aim ? { lookAt: aim } : {}),
+      });
+
+      setHiddenWpId(wpId);
+      setShowHotspots(wpId === "C" || wpId === "D" || wpId === "A" || wpId === "B" || wpId === "F" || wpId === "E" || wpId === "G");
+      setHiddenHotspotId(null);
+
+      if (wpId === "F") {
+        setPointerEnabled(false);
+      } else {
+        setPointerEnabled(true);
+      }
     }
   };
 
@@ -1055,14 +1070,16 @@ function App() {
                 const spawn = wp.spawnAt ?? { x: wp.wx, y: wp.wy ?? 0, z: wp.wz };
                 const aim = wp.aimAt ?? wp.lookAt ?? null;
 
+                teleportTo(spawn, aim, wp.id);
                 // Teleport + optional lookAt
-                expRef.current?.teleportTo({
-                  x: spawn.x,
-                  y: spawn.y ?? 0,
-                  z: spawn.z,
-                  duration: GLIDE,
-                  ...(aim ? { lookAt: aim } : {}),
-                });
+                // expRef.current?.teleportTo({
+                //   x: spawn.x,
+                //   y: spawn.y ?? 0,
+                //   z: spawn.z,
+                //   duration: GLIDE,
+                //   wpId: wp.id,
+                //   ...(aim ? { lookAt: aim } : {}),
+                // });
 
                 setHiddenWpId(wp.id);
                 setShowHotspots(wp.id === "C" || wp.id === "D" || wp.id === "A" || wp.id === "B" || wp.id === "F" || wp.id === "E" || wp.id === "G");
@@ -1592,6 +1609,7 @@ function App() {
           />
         )}
       </Canvas>
+      <FadeOverlay active = {isFading} />
       {shouldBlockPointer && (
         <div
           style={{
@@ -2366,7 +2384,7 @@ function App() {
         }}/>
       )}
 
-      {/* {hasEntered && !showLandingPopup && !hideUI && !activeRoom && (
+      {hasEntered && !showLandingPopup && !hideUI && !activeRoom && (
         <Button
           onClick={() => window.dispatchEvent(new Event("log-transform"))}
           style={{
@@ -2382,7 +2400,7 @@ function App() {
         }}>
             <SettingsIcon style={{color: 'black', fontSize: '1.5vw'}} />
         </Button>
-      )} */}
+      )}
       {hasEntered && !showLandingPopup && !hideUI && !isInMeetingLobby && pointerEnabled && activeNav === "Entrance" && (
         <FixedJoystick
           bgSrc={JoystickBG5}

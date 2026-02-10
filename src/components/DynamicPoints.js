@@ -177,6 +177,22 @@ export const WAYPOINTS_WORLD = [
         tooltipWidth: "20vw",
         wx: -33.93, wy: 1.6, wz: 18.449
     }, // Library
+    {
+        id: "H",
+        label: "FF-1",
+        desc: "FF-1",
+        interaction: "Enter",
+        tooltipWidth: "10vw",
+        wx: -21, wy: 5.2,  wz: -8,
+    }, // FF-1
+    {
+        id: "I",
+        label: "FF-2",
+        desc: "FF-2",
+        interaction: "Enter",
+        tooltipWidth: "10vw",
+        wx: -16.5, wy: 5.2,  wz: 9,
+    }, // FF-2
 ];
 
 export const STEP_BACK = [
@@ -206,6 +222,8 @@ export const SPAWN_OVERRIDES = {
     E: { x: -22.5, y: 0, z: -1 },// Breakout
     F: { x: -32,  y: 0, z: 3.2 },// Engagement
     G: { x: -37.3, y: 0, z: 11.1 },// Library
+    H: { x: -23.075, y: 3.52, z: -5.775 },// FF-1
+    I: { x: -15.048, y: 3.52, z: 4.661 },// FF-2
 };
 
 export const PRE_F_SPAWN = { x: -27, y: 0, z: 5.25 };
@@ -221,6 +239,8 @@ export const LOOK_AT_OVERRIDES = {
     E: { x: -15, y: 1.5, z: -17 },// Breakout
     F: {x: -50, y: 1.8, z: -2.0},// Engagement
     G: { x: -16.5, y: 1.8, z: -86 },//Library
+    H: { x: 47.373, y: -2.315, z: -76.358 },// FF-1
+    I: { x: -54.215, y: -1.189, z: 96.455 },// FF-2
 };
 
 export const CONFERENCE_HOTSPOT_POSITIONS = {
