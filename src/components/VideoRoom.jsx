@@ -2469,10 +2469,10 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             <Tooltip title= {whiteboardOn ? "Close Whiteboard" : "Open Whiteboard"} arrow>
                 <Button
                     variant="outlined"
-                    //onClick={toggleWhiteboard}
+                    onClick={toggleWhiteboard}
                     sx={{ minWidth: 0, width: '2.5vw', height: '2.5vw', border: 'none', borderRadius: '50%', color: 'white',
-                        cursor: 'not-allowed !important',
-                        opacity: 0.5,
+                        //cursor: 'not-allowed !important',
+                        //opacity: 0.5,
                     }}
                 >
                     {whiteboardOn ? <ContentPasteOffIcon sx={{fontSize: '1.25vw'}} /> : <ContentPasteIcon sx={{fontSize: '1.25vw'}} />}

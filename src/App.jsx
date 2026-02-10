@@ -167,6 +167,7 @@ function App() {
 
   // Scene step
   const [step] = useState("space");
+  const [currentAvatar, setCurrentAvatar] = useState("default");
 
   // Loader
   const [assetsReady, setAssetsReady] = useState(false);
@@ -1020,6 +1021,7 @@ function App() {
           szVideoOverride={szVideoOverride}
           hoverMiniVideo={hoverMiniVideo}
           showSZScreenText={showSZScreenText}
+          avatarType={currentAvatar}
         />
 
         {/* {shouldShowLiveFeed && (
@@ -2386,7 +2388,10 @@ function App() {
 
       {hasEntered && !showLandingPopup && !hideUI && !activeRoom && (
         <Button
-          onClick={() => window.dispatchEvent(new Event("log-transform"))}
+          onClick={() => {
+            window.dispatchEvent(new Event("log-transform"));
+            setCurrentAvatar((a) => a === "default" ? "variant" : "default");
+          }}
           style={{
             position: 'fixed',
             bottom: '4vw',

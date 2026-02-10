@@ -64,11 +64,12 @@ export const Experience = forwardRef(
       szVideoOverride,
       hoverMiniVideo,
       showSZScreenText,
+      avatarType="default",
     },
     ref
   ) => {
     const isFPP = viewMode === "FPP";
-    const { scene , animations: globeAnims } = useGLTF("/models/Innovation_Center_V11_Check_v25_Anim.compressed.glb");
+    const { scene, animations: globeAnims } = useGLTF("/models/Innovation_Center_V11_Check_v25_Anim.compressed.glb");
     const libText = useGLTF("/models/Lib_Text_01.glb");
     const sz_globe = useGLTF("/models/SZ_Globe.glb");
 
@@ -230,7 +231,10 @@ export const Experience = forwardRef(
 
     const businessMan = useGLTF("/models/SeatedAvatar.glb");
     const businessWomanSeat = useGLTF("/models/Avatar_Seated_3_LightBlue.glb"); //SA_Female_2
-    const businessWoman = useGLTF("/models/Lady_AI5.glb");
+    const defaultAvatar = useGLTF("/models/Lady_AI5.glb");
+    const variantAvatar = useGLTF("/models/Lady_AI4.glb");
+    const businessWoman = avatarType === "variant" ? variantAvatar : defaultAvatar;
+    //const businessWoman = useGLTF("/models/Lady_AI5.glb");
     const aiMixerRef = useRef();
     const sz_globeMixerRef = useRef();
     const szIdleActionRef = useRef(null);
@@ -1650,5 +1654,6 @@ useGLTF.preload("/models/Innovation_Center_V11_Check_v25_Anim.compressed.glb");
 useGLTF.preload("/models/SeatedAvatar.glb");
 useGLTF.preload("/models/Avatar_Seated_3_LightBlue.glb");
 useGLTF.preload("/models/Lady_AI5.glb");
+useGLTF.preload("/models/Lady_AI4.glb");
 useGLTF.preload("/models/Lib_Text_01.glb");
 useGLTF.preload("/models/SZ_Globe.glb");
