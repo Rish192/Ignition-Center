@@ -72,6 +72,7 @@ export const Experience = forwardRef(
     const { scene, animations: globeAnims } = useGLTF("/models/Innovation_Center_V11_Check_v25_Anim.compressed.glb");
     const libText = useGLTF("/models/Lib_Text_01.glb");
     const sz_globe = useGLTF("/models/SZ_Globe.glb");
+    const pod = useGLTF("/models/Pod.glb");
 
     const globeMixerRef = useRef(null);
     const doorMixerRef = useRef(null);
@@ -1401,6 +1402,12 @@ export const Experience = forwardRef(
           rotation={[0, THREE.MathUtils.degToRad(BUSINESSWOMAN_POS.rotationY), 0]}
         />
 
+        <primitive
+          object={pod.scene}
+          position={[-18.6, 3.52, -3.5]}
+          rotation={[0,10,0]}
+        />
+
         {/* Poster video surface */}
         {scene && scene.getObjectByName("IW_Screen") && (
           <VideoSurface
@@ -1657,3 +1664,4 @@ useGLTF.preload("/models/Lady_AI5.glb");
 useGLTF.preload("/models/Lady_AI4.glb");
 useGLTF.preload("/models/Lib_Text_01.glb");
 useGLTF.preload("/models/SZ_Globe.glb");
+useGLTF.preload("/models/Pod.glb");

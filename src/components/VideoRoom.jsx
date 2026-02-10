@@ -1,7 +1,6 @@
 import React, {useState, useMemo, useEffect, useRef} from 'react'
 import AgoraRTC from 'agora-rtc-sdk-ng'
 import {VideoPlayer} from './VideoPlayer';
-import Whiteboard from './Whiteboard';
 
 import {Box, Typography, Button, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Avatar, Divider, Chip, TextField} from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -480,30 +479,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         }
     }, [isResized, whiteboardFullScreen]);
 
-    useEffect(() => { //here
-        if (isResized) {
-            if (whiteboardOn) setWhiteboardOn(false);
-            try {
-                if (window.fastboard) {
-                    window.fastboard.destroy();
-                    window.fastboard = null;
-                }
-            } catch (_) {}
-            setActiveContent(null);
-        } else {
-            if (activeContent !== "whiteboard") {
-                try {
-                    if (window.fastboard) {
-                        window.fastboard.destroy();
-                        window.fastboard = null;
-                    }
-                } catch (_) {}
-                if (whiteboardOn) setWhiteboardOn(false);
-                setWhiteboardFullScreen(false);
-            }
-        }
-    }, [isResized, whiteboardOn, screenshareUsers.length, activeContent]);
-
     useEffect(() => {
         if (!isResized && screenshareUsers.length > 0 && !activeContent) {
             setActiveContent("screen");
@@ -517,12 +492,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 if (activeContent === "screen" && screenshareUsers.length > 0) {
                     setShouldRePinScreen(true);
                 }
-                if (window.fastboard) {
-                    window.fastboard.destroy();
-                    window.fastboard = null;
-                }
                 setActiveContent("pin");
-                setWhiteboardOn(false);
             } else {
                 setActiveContent(null);
             }
@@ -583,10 +553,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 // Keep ONLY this screensharer in state
                 setUsers((prev) => prev.filter((u) => u.uid !== user.uid));
                 setScreenshareUsers([{ uid: user.uid, videoTrack: user.videoTrack, isScreen: true }]);
-                if (window.fastboard) {
-                    try { window.fastboard.destroy(); } catch (_) {}
-                    window.fastboard = null;
-                }
+                
                 // Clear any pinned camera
                 setPinnedUser(null);
                 setActiveContent("screen");
@@ -791,7 +758,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         setPinnedUser(null);
         setActiveContent("whiteboard");
         setWhiteboardOn(true);
-        //setScreenshareOn(false);
     };
 
     useEffect(() => {
@@ -814,9 +780,8 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     }, [roomName]);
 
     const initWhiteboard = async () => {
-        if (!whiteboardData) return;
         const container = document.getElementById("whiteboard-container");
-        if (!container) return;
+        if (!container || !whiteboardData) return;
 
         try {
             const fastboard = await createFastboard({
@@ -931,6 +896,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     console.warn("Error destroying whiteboard: ", err);
                 }
                 window.fastboard = null;
+                setWhiteboardOn(false);
             }
 
             if(session?.roomName) {
@@ -2241,7 +2207,8 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                     background: 'white',
                                     borderRadius: "8px",
                                     zIndex: 2000,
-                                }} />
+                                }} 
+                            />
                             {!isResized && (
                                 <IconButton
                                     size="small"
