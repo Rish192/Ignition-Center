@@ -65,6 +65,7 @@ export const Experience = forwardRef(
       hoverMiniVideo,
       showSZScreenText,
       avatarType="default",
+      showOnlyAdmin = false,
     },
     ref
   ) => {
@@ -1402,11 +1403,13 @@ export const Experience = forwardRef(
           rotation={[0, THREE.MathUtils.degToRad(BUSINESSWOMAN_POS.rotationY), 0]}
         />
 
-        <primitive
-          object={pod.scene}
-          position={[-18.6, 3.52, -3.5]}
-          rotation={[0,10,0]}
-        />
+        {showOnlyAdmin && (
+          <primitive
+            object={pod.scene}
+            position={[-18.6, 3.52, -3.5]}
+            rotation={[0,10,0]}
+          />
+        )}
 
         {/* Poster video surface */}
         {scene && scene.getObjectByName("IW_Screen") && (

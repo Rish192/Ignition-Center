@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useProgress } from "@react-three/drei";
 
+import Auth from "./Auth";
 import { Experience } from "./components/Experience";
 import { WaypointRing2D } from "./components/WaypointRing";
 import { BlueHotspot } from "./components/BlueHotspot";
@@ -168,6 +169,7 @@ function App() {
   // Scene step
   const [step] = useState("space");
   const [currentAvatar, setCurrentAvatar] = useState("default");
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem("profile")));
 
   // Loader
   const [assetsReady, setAssetsReady] = useState(false);
@@ -268,6 +270,13 @@ function App() {
 
   const [isScreenShared, setIsScreenShared] = useState(false);
   const isMeetingActive = !!activeRoom;
+
+  const handleLogout = () => {
+    localStorage.clear();
+    setUser(null);
+    setHasEntered(false);
+    
+  };
 
   const autoShowSZText = (duration = 5000) => {
     setShowSZScreenText("default");
@@ -980,6 +989,15 @@ function App() {
     setHideUI(true);
   }
 
+  const handleAuthSuccess = (userData) => {
+    console.log("Full User Profile Data: ", userData);
+    console.log("User Role: ", userData.result?.role || userData.role);
+    setUser(userData);
+  }
+  if (!user) {
+    return <Auth onAuthSuccess={handleAuthSuccess} />;
+  }
+
   return (
     <>
       <Canvas
@@ -1022,6 +1040,7 @@ function App() {
           hoverMiniVideo={hoverMiniVideo}
           showSZScreenText={showSZScreenText}
           avatarType={currentAvatar}
+          showOnlyAdmin={user?.result?.role === 'admin'}
         />
 
         {/* {shouldShowLiveFeed && (
@@ -1655,6 +1674,33 @@ function App() {
             </Typography>
           </div>
         </div>
+      )}
+      {hasEntered && !showLandingPopup && (
+        <Button 
+          onClick={handleLogout} 
+          sx={{
+            position: 'fixed',
+            top: '0.5208vw',
+            right: '0.4167vw',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            textTransform: 'none',
+            color: 'white',
+            fontSize: '0.9375vw',
+            backgroundColor: "rgba(0, 63, 145, 0.75)",
+            borderRadius: '8px',
+            padding: '0.4167vw 0.8333vw',
+            boxSizing: 'border-box',
+            zIndex: 3001,
+            transition: 'all 0.2s ease',
+            '&: hover': {
+                transform: 'scale(1.04)',
+            }
+          }}
+        >
+          Logout ({user?.result?.role})
+        </Button>
       )}
       {hasEntered && !showLandingPopup &&(
         <div style={{
