@@ -165,6 +165,13 @@ function AssetMonitor({ onDone }) {
 
 function App() {
   const expRef = useRef(null);
+  const triggerDoorClose = () => {
+      try {
+          window.dispatchEvent(new Event("ic:door"));
+      } catch (e) {
+          console.warn("Failed to dispatch ic:door event:", e);
+      }
+  };
 
   // Scene step
   const [step] = useState("space");
@@ -273,9 +280,9 @@ function App() {
 
   const handleLogout = () => {
     localStorage.clear();
-    setUser(null);
-    setHasEntered(false);
-    
+    window.location.href = "/";
+    // setUser(null);
+    // setHasEntered(false);
   };
 
   const autoShowSZText = (duration = 5000) => {
@@ -3215,9 +3222,12 @@ function App() {
               <Button
               variant="outlined"
               onClick={() => {
+                  triggerDoorClose();
                   setShowEmpLeavePopup(false);
                   navigate("/");
-                  backToWaypointF(); 
+                  setTimeout(() => {
+                    backToWaypointF();
+                  }, 600);
                   setHideTopBar(false);
               }}
               sx={{
@@ -3352,10 +3362,14 @@ function App() {
               <Button
               variant="outlined"
               onClick={() => {
-                  setShowClientLeavePopup(false);
-                  navigate("/");
-                  backToWaypointF(); 
-                  setHideTopBar(false);
+                triggerDoorClose();
+                setShowClientLeavePopup(false);
+                navigate("/");
+                setTimeout(() => {
+                  backToWaypointF();
+                }, 600);
+                backToWaypointF(); 
+                setHideTopBar(false);
               }}
               sx={{
                 px: '0.8333vw',

@@ -39,7 +39,7 @@ import { Badge } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import RemoveIcon from '@mui/icons-material/Remove';
 
-import { createFastboard, mount } from '@netless/fastboard';
+import { createFastboard, createUI } from '@netless/fastboard';
 
 const APP_IDENTIFIER = "bo1dsM5xEfCUPQFV4xFmrQ/VVeGCDqXYPxEvg";   // From Agora Console - Whiteboard 9LKW0HzNEfCwKrcQj8VaJw/sE2AINp4OAjMWQ
 const SDK_TOKEN = "NETLESSSDK_YWs9b3ExZmtXa0xoTDhiRDdqSiZub25jZT05OGYxYjhkMC1jZTcxLTExZjAtOTQzZC0wMTU1ZTMxMTY2YWQmcm9sZT0wJnNpZz0wNjZjNTM0ZmRhMTFhZjQyYjczNTdjNzBhZTU3OTUxMTc3NDcyNzFmNThiY2M0ODExNGU4Y2Y5ZWU2NDEwZThj";
@@ -745,7 +745,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const toggleWhiteboard = () => {
         if (activeContent === "whiteboard") {
             if (window.fastboard) {
-                window.fastboard.destroy();
+                window.fastboardUI.destroy();
                 window.fastboard = null;
             }
             setActiveContent(null);
@@ -791,11 +791,13 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 roomToken: whiteboardData.token,
                 uid: `${Date.now()}`,
                 },
-                container,
-                useUI: true,
+                managerConfig: {
+                    cursor: true,
+                }
             });
-            mount(fastboard, container);
+            const ui = createUI(fastboard, container);
             window.fastboard = fastboard;
+            window.fastboardUI = ui;
         } catch (err) {
             console.error("Whiteboard mount error", err);
             alert("Failed to open whiteboard");
@@ -822,7 +824,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     }, [session]);
 
     const leaveCall = async () => {
-        triggerDoorClose();
+        //triggerDoorClose();
         await new Promise((r) => setTimeout(r, 1200));
         try {
             // screenTrack (if created) stored maybe in ref; if you created it, put it into ref.screen
