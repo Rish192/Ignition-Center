@@ -48,11 +48,15 @@ const REGION = "us-sv";
 const client = AgoraRTC.createClient({
     mode: 'rtc',
     codec: 'vp8',
-})
+});
 const screenClient = AgoraRTC.createClient({
     mode: 'rtc',
     codec: 'vp8',
-})
+});
+const breakoutClient = AgoraRTC.createClient({
+    mode: 'rtc',
+    codec: 'vp8',
+});
 const API_BASE = import.meta.env.VITE_APP_API_BASE;
 
 function ScreenVideo({ track, fit = 'contain' }) {
@@ -116,6 +120,148 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const [searchTerm, setSearchTerm] = useState('');
     const [blockMiniHotspots, setBlockMiniHotspots] = useState(false); // to block mini_hotspots when participant/chat is opened
     const [blockMiniHotspots2, setBlockMiniHotspots2] = useState(false); // to block mini_hotspots when tiled screen is maximized
+
+    const [inBreakout, setInBreakout] = useState(false);
+    const [breakoutUsers, setBreakoutUsers] = useState([]);
+
+    const toggleBreakout = () => {
+        if (!chatSocketRef.current || chatSocketRef.current.readyState !== WebSocket.OPEN) {
+            console.error("Chat socket not connected");
+            return;
+        }
+        const action = !inBreakout ? "trigger_breakout" : "trigger_end_breakout";
+        chatSocketRef.current.send(JSON.stringify({ type: action }));
+    };
+
+    const joinBreakoutRoom = async (breakoutRoomName) => {
+
+        const isMicActive = micOn;
+        const isCamActive = !cameraOn;
+        console.log("MIC: ", isMicActive);
+        console.log("CAMERA: ", isCamActive );
+
+        if (breakoutClient.connectionState !== "DISCONNECTED") {
+            console.warn("Breakout client is not disconnected. Leaving first...");
+            await breakoutClient.leave();
+        }
+
+        try {
+            // 1. "Mute" yourself in the Main Room
+            //await client.unpublish([localTracksRef.current.audio, localTracksRef.current.video]);
+            await client.unpublish().catch(e => console.warn("Unpublish failed: ", e));
+
+            // 2. Get a new token for the breakout room from your existing API
+            const res = await fetch(`${API_BASE}/api/token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    roomName: breakoutRoomName,
+                    uid: session.uid,
+                    userName: session.userName
+                })
+            });
+            const data = await res.json();
+
+            // 3. Join the breakout channel
+            await breakoutClient.join(session.appId, breakoutRoomName, data.token, session.uid);
+
+            if (localTracksRef.current.audio) await localTracksRef.current.audio.setMuted(!isMicActive);
+            if (localTracksRef.current.video) await localTracksRef.current.video.setEnabled(isCamActive);
+
+            // 4. Publish your tracks to the BREAKOUT room
+            const toPublish = [];
+            if (isMicActive && localTracksRef.current.audio) toPublish.push(localTracksRef.current.audio);
+            if (isCamActive && localTracksRef.current.video) toPublish.push(localTracksRef.current.video);
+
+            if (toPublish.length > 0) {
+                await breakoutClient.publish(toPublish);
+            }
+            // await breakoutClient.publish([localTracksRef.current.audio, localTracksRef.current.video]);
+
+            setInBreakout(true);
+            setUsers([]); // Clear main users from UI (they are still connected, just hidden)
+
+            setBreakoutUsers([
+                {
+                    uid: session.uid,
+                    videoTrack: isCamActive ? localTracksRef.current.video : null,
+                    audioTrack: isMicActive ? localTracksRef.current.audio : null,
+                    micOn: isMicActive
+                }
+            ]);
+            
+            // 5. Setup event listeners for the breakout room
+            breakoutClient.on('user-published', async (user, mediaType) => {
+                await breakoutClient.subscribe(user, mediaType);
+                if (mediaType === 'video') {
+                    // setBreakoutUsers(prev => [...prev, user]);
+                    setBreakoutUsers(prev => {
+                        const exists = prev.find(u => u.uid === user.uid);
+                        if (exists) return prev.map(u => u.uid === user.uid ? { ...u, videoTrack: user.videoTrack } : u);
+                        return [...prev, user];
+                    });
+                }
+                if (mediaType === 'audio') {
+                    user.audioTrack?.play();
+                    setBreakoutUsers(prev => {
+                        const exists = prev.find(u => u.uid === user.uid);
+                        if (exists) return prev.map(u => u.uid === user.uid ? { ...u, audioTrack: user.audioTrack, micOn: true } : u);
+                        return [...prev, user];
+                    });
+                }
+            });
+            breakoutClient.on('user-unpublished', (user, mediaType) => {
+                // setBreakoutUsers(prev => prev.filter(u => u.uid !== user.uid));
+                setBreakoutUsers(prev => prev.map(u => {
+                    if (u.uid !== user.uid) return u;
+                    if (mediaType === 'video') return { ...u, videoTrack: null };
+                    if (mediaType === 'audio') return { ...u, audioTrack: null, micOn: false };
+                    return u;
+                }));
+            });
+        } catch (e) {
+            console.error("Failed to join breakout:", e);
+        }
+    };
+
+    const returnToMainRoom = async () => {
+
+        const isMicActive = micOn;
+        const isCamActive = !cameraOn;
+
+        try {
+            // 1. Leave the breakout room
+            await breakoutClient.leave();
+
+            if (localTracksRef.current.audio) await localTracksRef.current.audio.setMuted(!isMicActive);
+            if (localTracksRef.current.video) await localTracksRef.current.video.setEnabled(isCamActive);
+
+            // 2. Publish back to the MAIN room
+            const toPublish = [];
+            if (isMicActive && localTracksRef.current.audio) toPublish.push(localTracksRef.current.audio);
+            if (isCamActive && localTracksRef.current.video) toPublish.push(localTracksRef.current.video);
+
+            if (toPublish.length > 0) {
+                await client.publish(toPublish);
+            }
+            //await client.publish([localTracksRef.current.audio, localTracksRef.current.video]);
+
+            setInBreakout(false);
+            setBreakoutUsers([]);
+
+            setUsers([
+                {
+                    uid: session.uid,
+                    videoTrack: isCamActive ? localTracksRef.current.video : null,
+                    audioTrack: isMicActive ? localTracksRef.current.audio : null,
+                    micOn: isMicActive
+                }
+            ]);
+        } catch (e) {
+            console.error("Failed to return to main:", e);
+        }
+    };
+
 
     useEffect(() => {
         rosterTabRef.current = rosterTab;
@@ -609,29 +755,33 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         const video = localTracksRef.current.video;
         if (!video) return;
         const newCameraState = !cameraOn;
+        const activeClient = inBreakout ? breakoutClient : client;
         if (newCameraState) {
             await video.setEnabled(true);
             try {
-                await client.publish([video]);
+                await activeClient.publish([video]);
             } catch (err) {
                 console.warn("Video publish error", err);
             }
 
-            setUsers((prevUsers) => 
+            const updateState = inBreakout ? setBreakoutUsers : setUsers;
+
+            updateState((prevUsers) => 
             prevUsers.map((user) => 
-            user.uid === client.uid ? {...user, videoTrack: video} : user));
+            user.uid === activeClient.uid ? {...user, videoTrack: video} : user));
         } else {
             try {
-                await client.unpublish([video]);
+                await activeClient.unpublish([video]);
             } catch(err) {
                 console.warn("Video unpublish error", err);
             }
 
             await video.setEnabled(false);
-
-            setUsers((prevUsers) =>
+            
+            const updateState = inBreakout ? setBreakoutUsers : setUsers;
+            updateState((prevUsers) =>
             prevUsers.map((user) =>
-            user.uid === client.uid ? {...user, videoTrack: null} : user));
+            user.uid === activeClient.uid ? {...user, videoTrack: null} : user));
         }
 
         setCameraOn(newCameraState);
@@ -641,30 +791,28 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const toggleMic = async () => {
         const audio = localTracksRef.current.audio;
         if (!audio) return;
-        if (micOn) {
-            // Mic currently ON → mute
-            try {
-            await audio.setMuted(true); // this disables audio input
-            await client.unpublish(audio);
-            } catch (err) {
-            console.error("Mute mic error", err);
-            }
-        } else {
-            // Mic currently OFF → unmute
-            try {
-            await audio.setMuted(false);
-            // republish if needed
-            if (!client.remoteUsers.find(u => u.uid === client.uid)) {
-                await client.publish(audio);
+
+        const activeClient = inBreakout ? breakoutClient : client;
+        const newMicState = !micOn;
+
+        try {
+            if (micOn) {
+                await audio.setMuted(true);
+                await activeClient.unpublish([audio]);
             } else {
-                await client.publish(audio);
+                await audio.setMuted(false);
+                await activeClient.publish([audio]);
             }
-            } catch (err) {
-            console.error("Unmute mic error", err);
-            }
+            const updateState = inBreakout ? setBreakoutUsers : setUsers;
+            updateState(prev => prev.map(u => 
+                u.uid === activeClient.uid ? { ...u, micOn: newMicState } : u
+            ));
+            setMicOn(newMicState);
+        } catch (err) {
+            console.error("Mic toggle error", err);
         }
-        setUsers(prev => prev.map(u => u.uid === client.uid ? { ...u, micOn: !micOn } : u));
-        setMicOn(!micOn);
+        // setUsers(prev => prev.map(u => u.uid === client.uid ? { ...u, micOn: !micOn } : u));
+        // setMicOn(!micOn);
     };
     
     const toggleScreenShare = async() => {
@@ -1278,6 +1426,17 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         socket.onmessage = (evt) => {
             try {
                 const msg = JSON.parse(evt.data);
+
+                if (msg.type === "BREAKOUT_START") {
+                    console.log("Moving to breakout room: ", msg.breakoutRoomName);
+                    joinBreakoutRoom(msg.breakoutRoomName);
+                    return;
+                }
+                if (msg.type === "BREAKOUT_STOP") {
+                    console.log("Returning to main room");
+                    returnToMainRoom();
+                    return;
+                }
                 if (msg.type !== "chat") return;
                 setChatMessages((prev) => [
                     ...prev,
@@ -1334,7 +1493,8 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         if (!is2DScreenShareActive || isResized) setScreenShareFull(false);
     }, [isResized, is2DScreenShareActive, activeContent, screenshareUsers.length]);
 
-   const gridUsers = users.filter((u) => !looksLikeScreen(u));
+    const activeUserList = inBreakout ? breakoutUsers : users;
+    const gridUsers = activeUserList.filter((u) => !looksLikeScreen(u));
     const participantCount = gridUsers.length;
 
     // Common visible (non-screen) users list for names & genders passed to Experience
@@ -1922,7 +2082,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             }}>
                 <GridViewIcon sx={{ fontSize: '0.9vw', color: 'white' }} />
                 <Typography sx={{ fontSize: '0.8333vw', fontWeight: 700, color: 'white' }}>
-                    Tiled Screen
+                    {inBreakout ? "Tiled-Breakout" : "Tiled Screen"}
                 </Typography>
             </Box>
             <Box
@@ -2515,6 +2675,19 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     <ExitToAppIcon sx={{fontSize: '1.25vw'}} />
                 </Button>
             </Tooltip>
+            <button
+              onClick={toggleBreakout}
+              style={{
+                backgroundColor: inBreakout ? '#ff4d4d' : '#4CAF50',
+                color: 'white',
+                padding: '1vw',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+                {inBreakout ? 'Stop' : 'Start'}
+            </button>
         </Box>
     </Box>
     {/* Tiles Section */}
@@ -3182,7 +3355,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                 mb: '0.35vw',
                             }}
                         />
-                        {users
+                        {activeUserList //users
                         .filter(u => !looksLikeScreen(u))
                         .filter(u => (nameMap[u.uid] || `User ${u.uid}`).toLowerCase().includes(searchTerm.toLowerCase()))
                         .map((u) => {
@@ -3274,7 +3447,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                             );
                         })}
 
-                        {users.filter(u => !looksLikeScreen(u)).length === 0 && (
+                        {activeUserList.filter(u => !looksLikeScreen(u)).length === 0 && (
                         <Typography sx={{ opacity: 0.8 }}>No participants yet.</Typography>
                         )}
                     </Box>
