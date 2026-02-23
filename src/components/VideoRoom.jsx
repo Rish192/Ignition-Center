@@ -124,27 +124,42 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const [breakoutCreated, setBreakoutCreated] = useState(false);
     const [inBreakout, setInBreakout] = useState(false);
     const [breakoutUsers, setBreakoutUsers] = useState([]);
+    const [showBreakoutSelector, setShowBreakoutSelector] = useState(false);
+    const [selectedUserIds, setSelectedUserIds] = useState([]); //only host has this list
+    const [usersInBreakout, setUsersInBreakout] = useState([]); //every user can check this list
 
     const toggleBreakout = () => {
-        if (!chatSocketRef.current || chatSocketRef.current.readyState !== WebSocket.OPEN) {
-            console.error("Chat socket not connected");
-            return;
+        if (breakoutCreated) {
+            chatSocketRef.current.send(JSON.stringify({
+                type: "trigger_end_breakout",
+                uid: session.uid
+            }));
+        } else {
+            const allOtherUsers = users.filter(u => u.uid !== session.uid).map(u => u.uid);
+            setSelectedUserIds(allOtherUsers);
+            setShowBreakoutSelector(true);
         }
-        const action = !breakoutCreated ? "trigger_breakout" : "trigger_end_breakout";
-        chatSocketRef.current.send(JSON.stringify({ 
-            type: action,
-            uid: session.uid
-        }));
     };
 
-    const joinBreakoutRoom = async (breakoutRoomName) => {
+    const startTargetedBreakout = () => {
+        if (!chatSocketRef.current) return;
+        chatSocketRef.current.send(JSON.stringify({
+            type: "trigger_breakout",
+            uid: session.uid,
+            targets: selectedUserIds
+        }));
+        setShowBreakoutSelector(false);
+    }
+
+    const joinBreakoutRoom = async (breakoutRoomName, currentTargets = []) => {
+        setBreakoutUsers([]);
+
         const currentMicMuted = localTracksRef.current.audio ? localTracksRef.current.audio.muted : true;
         const currentCamEnabled = localTracksRef.current.video ? localTracksRef.current.video.enabled : false;
 
         if (breakoutClient.connectionState !== "DISCONNECTED") {
             await breakoutClient.leave();
         }
-
         breakoutClient.removeAllListeners();
 
         try {
@@ -194,8 +209,9 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 if (looksLikeScreen(user)) return;
 
                 setBreakoutUsers(prev => {
+                    const isActuallyInBreakout = currentTargets.includes(user.uid);
                     const exists = prev.find(u => u.uid === user.uid);
-                    if (exists) return prev;
+                    if (exists || !isActuallyInBreakout) return prev;
                     // Add user immediately even if their mic/cam is off
                     return [...prev, { 
                         uid: user.uid, 
@@ -261,6 +277,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
 
         try {
             await breakoutClient.leave();
+            breakoutClient.removeAllListeners();
 
             users.forEach(async (remoteUser) => {
                 if (remoteUser.uid !== session.uid) {
@@ -283,6 +300,8 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
 
             setInBreakout(false);
             setBreakoutUsers([]);
+            setSelectedUserIds([]);
+            setUsersInBreakout([]);
         } catch (e) {
             console.error("Failed to return to main: ", e);
         }
@@ -1455,18 +1474,23 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
 
                 if (msg.type === "BREAKOUT_START") {
                     setBreakoutCreated(true);
+                    const targets = msg.targets || [];
+                    
+                    setUsersInBreakout(targets); 
+
                     if (String(msg.triggeredBy) === String(session.uid)) {
-                        console.log("Host staying in main room.");
-                        return;
-                    } else {
-                        console.log("Moving to breakout room: ", msg.breakoutRoomName);
-                        joinBreakoutRoom(msg.breakoutRoomName);
-                        return;
+                        return; 
+                    } else if (targets.includes(session.uid)) {
+                        joinBreakoutRoom(msg.breakoutRoomName, targets);
                     }
+                    return;
                 }
                 if (msg.type === "BREAKOUT_STOP") {
                     setBreakoutCreated(false);
                     console.log("Returning to main room");
+                    setBreakoutUsers([]);
+                    setSelectedUserIds([]);
+                    setUsersInBreakout([]);
                     returnToMainRoom();
                     return;
                 }
@@ -1528,17 +1552,14 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
 
     const activeUserList = inBreakout ? breakoutUsers 
         : users.filter(u => {
-            if (breakoutCreated) {
-                return u.uid === session.uid;
-            }
-            return true;
+            if (!breakoutCreated) return true;
+
+            return !usersInBreakout.includes(u.uid);
         });
     const gridUsers = activeUserList.filter((u) => {
         if (looksLikeScreen(u)) return false;
+        if (u.uid === session.uid) return true;
 
-        if (!inBreakout && breakoutCreated) {
-            return u.uid === session.uid || u.videoTrack || u.audioTrack;
-        }
         return true;
     })
     const participantCount = gridUsers.length;
@@ -3941,6 +3962,46 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
           }}
         >
             <TiledScreenHeader />
+        </Box>
+    )}
+    {showBreakoutSelector && (
+        <Box sx={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            bgcolor: '#1a1a1a', p: 3, borderRadius: 2, border: '1px solid #00f7ff',
+            zIndex: 2000, width: '300px', boxShadow: '0 0 20px rgba(0,0,0,0.5)'
+        }}>
+            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>Select Participants</Typography>
+            <Box sx={{ maxHeight: '300px', overflowY: 'auto', mb: 2 }}>
+                {users.filter(u => u.uid !== session.uid).map(u => (
+                    <Box key={u.uid} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                        <input 
+                            type="checkbox" 
+                            checked={selectedUserIds.includes(u.uid)}
+                            onChange={(e) => {
+                                if (e.target.checked) {
+                                    setSelectedUserIds(prev => [...prev, u.uid]);
+                                } else {
+                                    setSelectedUserIds(prev => prev.filter(id => id !== u.uid));
+                                }
+                            }}
+                        />
+                        <Typography sx={{ color: 'white' }}>
+                            {nameMap[u.uid] || `User ${u.uid}`}
+                        </Typography>
+                    </Box>
+                ))}
+                {users.length <= 1 && <Typography sx={{ color: 'gray' }}>No other participants</Typography>}
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                <button onClick={() => setShowBreakoutSelector(false)} style={{ background: 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}>Cancel</button>
+                <button 
+                    onClick={startTargetedBreakout}
+                    disabled={selectedUserIds.length === 0}
+                    style={{ backgroundColor: '#4CAF50', color: 'white', padding: '5px 15px', border: 'none', borderRadius: '4px', cursor: 'pointer', opacity: selectedUserIds.length === 0 ? 0.5 : 1 }}
+                >
+                    Start Breakout
+                </button>
+            </Box>
         </Box>
     )}
     </>
