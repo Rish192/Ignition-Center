@@ -125,6 +125,8 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const [inBreakout, setInBreakout] = useState(false);
     const [breakoutUsers, setBreakoutUsers] = useState([]);
     const [showBreakoutSelector, setShowBreakoutSelector] = useState(false);
+    const [roomAssignments, setRoomAssignments] = useState({}); // {uid: roomIndex}
+    const breakoutRoomCount = 3;
     const [selectedUserIds, setSelectedUserIds] = useState([]); //only host has this list
     const [usersInBreakout, setUsersInBreakout] = useState([]); //every user can check this list
 
@@ -135,8 +137,9 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 uid: session.uid
             }));
         } else {
-            const allOtherUsers = users.filter(u => u.uid !== session.uid).map(u => u.uid);
-            setSelectedUserIds(allOtherUsers);
+            // const allOtherUsers = users.filter(u => u.uid !== session.uid).map(u => u.uid);
+            // setSelectedUserIds(allOtherUsers);
+            setRoomAssignments({});
             setShowBreakoutSelector(true);
         }
     };
@@ -1474,16 +1477,25 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
 
                 if (msg.type === "BREAKOUT_START") {
                     setBreakoutCreated(true);
-                    const targets = msg.targets || [];
-                    
-                    setUsersInBreakout(targets); 
 
+                    const allAssignedUids = Object.values(msg.assignments).flat();
+                    setUsersInBreakout(allAssignedUids);
+
+                    let myBreakoutRoom = null;
+                    let myRoomTargets = [];
+
+                    Object.entries(msg.assignments).forEach(([roomName, uids]) => {
+                        if (uids.includes(session.uid)) {
+                            myBreakoutRoom = roomName;
+                            myRoomTargets = uids;
+                        }
+                    });
                     if (String(msg.triggeredBy) === String(session.uid)) {
-                        return; 
-                    } else if (targets.includes(session.uid)) {
-                        joinBreakoutRoom(msg.breakoutRoomName, targets);
+                        return;
+                    } else if (myBreakoutRoom) {
+                        setUsersInBreakout(myRoomTargets);
+                        joinBreakoutRoom(myBreakoutRoom, myRoomTargets);
                     }
-                    return;
                 }
                 if (msg.type === "BREAKOUT_STOP") {
                     setBreakoutCreated(false);
@@ -3964,13 +3976,13 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             <TiledScreenHeader />
         </Box>
     )}
-    {showBreakoutSelector && (
+    {/* {showBreakoutSelector && (
         <Box sx={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
             bgcolor: '#1a1a1a', p: 3, borderRadius: 2, border: '1px solid #00f7ff',
             zIndex: 2000, width: '300px', boxShadow: '0 0 20px rgba(0,0,0,0.5)'
         }}>
-            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>Select Participants</Typography>
+            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>Assign Rooms</Typography>
             <Box sx={{ maxHeight: '300px', overflowY: 'auto', mb: 2 }}>
                 {users.filter(u => u.uid !== session.uid).map(u => (
                     <Box key={u.uid} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
@@ -4000,6 +4012,56 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     style={{ backgroundColor: '#4CAF50', color: 'white', padding: '5px 15px', border: 'none', borderRadius: '4px', cursor: 'pointer', opacity: selectedUserIds.length === 0 ? 0.5 : 1 }}
                 >
                     Start Breakout
+                </button>
+            </Box>
+        </Box>
+    )} */}
+    {showBreakoutSelector && (
+        <Box sx={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            bgcolor: '#1a1a1a', p: 3, borderRadius: 2, border: '1px solid #00f7ff',
+            zIndex: 2000, width: '300px', boxShadow: '0 0 20px rgba(0,0,0,0.5)'
+        }}>
+            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>Assign Rooms</Typography>
+            <Box sx={{ maxHeight: '300px', overflowY: 'auto' }}>
+                {users.filter(u => u.uid !== session.uid).map(u => (
+                    <Box key={u.uid} sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                        <Typography sx={{ color: 'white' }}>{nameMap[u.uid] || u.uid}</Typography>
+                        <select 
+                            value={roomAssignments[u.uid] || ""} 
+                            onChange={(e) => setRoomAssignments(prev => ({...prev, [u.uid]: e.target.value}))}
+                            style={{ background: '#333', color: 'white', borderRadius: '4px' }}
+                        >
+                            <option value="">Unassigned</option>
+                            <option value="1">Room 1</option>
+                            <option value="2">Room 2</option>
+                            <option value="3">Room 3</option>
+                        </select>
+                    </Box>
+                ))}
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+                <button style = {{cursor: 'pointer'}} onClick={() => setShowBreakoutSelector(false)}>Cancel</button>
+                <button 
+                    onClick={() => {
+                        const formattedAssignments = {};
+                        Object.entries(roomAssignments).forEach(([uid, roomIdx]) => {
+                            if (!roomIdx) return;
+                            const rName = `${roomName}_${roomIdx}_breakout`;
+                            if (!formattedAssignments[rName]) formattedAssignments[rName] = [];
+                            formattedAssignments[rName].push(Number(uid));
+                        });
+                        
+                        chatSocketRef.current.send(JSON.stringify({
+                            type: "trigger_breakout",
+                            uid: session.uid,
+                            assignments: formattedAssignments
+                        }));
+                        setShowBreakoutSelector(false);
+                    }}
+                    style={{ backgroundColor: '#4CAF50', color: 'white', padding: '10px', cursor: 'pointer' }}
+                >
+                    Launch Rooms
                 </button>
             </Box>
         </Box>
