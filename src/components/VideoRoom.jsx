@@ -2815,7 +2815,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     <ExitToAppIcon sx={{fontSize: '1.25vw'}} />
                 </Button>
             </Tooltip>
-            {session?.role === "employee" && !inBreakout && (
+            {session?.role === "employee" && session?.isHost && !inBreakout && (
                 <button
                 onClick={toggleBreakout}
                 style={{

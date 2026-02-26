@@ -635,6 +635,7 @@ export default function RoomsLobby({onLeaveSession, onClose, onExplore, onContin
         return;
       }
 
+      localStorage.setItem(`hostToken_${roomName}`, data.hostToken);
       // keep a local selectedRoom snapshot using UTC ms
       setSelectedRoom({
         roomName,
@@ -671,10 +672,18 @@ export default function RoomsLobby({onLeaveSession, onClose, onExplore, onContin
 
     if (role === "employee") {
       try {
+        const savedHostToken = localStorage.getItem(`hostToken_${roomName}`);
+        
         const res = await fetch(`${API_BASE}/api/token`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomName, userName: username, role, gender: avatarGender })
+          body: JSON.stringify({ 
+            roomName, 
+            userName: username, 
+            role, 
+            gender: avatarGender,
+            hostToken: savedHostToken
+          })
         });
         if (res.status === 404) {
           setAdminStep("join");
