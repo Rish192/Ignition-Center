@@ -668,40 +668,7 @@ export default function RoomsLobby({onLeaveSession, onClose, onExplore, onContin
       return;
     }
     goIn();
-    // try {
-    //   const checkRes = await fetch(`${API_BASE}/api/tokenCheck`, {
-    //     method: "POST",
-    //     headers: { "Content-Type": "application/json" },
-    //     body: JSON.stringify({ roomName, userName: username, role })
-    //   });
-    //   if (checkRes.status === 403) {
-    //     const data = await checkRes.json().catch(() => ({}));
-    //     if (data?.error === "Meeting not started yet" && data?.startDateTime) {
-    //       const start = new Date(Number(data.startDateTime));
-    //       const formattedTime = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    //       const formattedDate = start.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' });
-    //       setMeetingTime(formattedTime);
-    //       setMeetingDate(formattedDate);
-    //       setAdminStep("meetnotstarted"); //to change
-    //       return;
-    //     } else if (data?.error === "Meeting has already ended." && data?.endDateTime) {
-    //       const end = new Date(Number(data.endDateTime));
-    //       const formattedEndTime = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'});
-    //       const formattedEndDate = end.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' })
-    //       setMeetingEndTime(formattedEndTime);
-    //       setMeetingEndDate(formattedEndDate);
-    //       setAdminStep("join"); //to change
-    //     }
-    //   }
-    //   if (checkRes.status === 404) {
-    //     const msg = await checkRes.json().catch(() => ({}));
-    //     alert(msg.error || "Room not found.");
-    //     return;
-    //   }
-    // } catch (err) {
-    //   console.error("Meeting time check failed: ", err);
-    //   return;
-    // }
+
     if (role === "employee") {
       try {
         const res = await fetch(`${API_BASE}/api/token`, {
@@ -725,7 +692,6 @@ export default function RoomsLobby({onLeaveSession, onClose, onExplore, onContin
           prefMicOn,
           avatarGender
         }));
-        // clearPendingJoin();
         onJoinRoom(roomName);
       } catch(err) {
         console.error("Join room error: ", err);
@@ -911,45 +877,7 @@ export default function RoomsLobby({onLeaveSession, onClose, onExplore, onContin
       console.error("Failed to get room details for client:", err);
     }
   };
-  // const joinClientFromPreview = async (roomName) => {
-  //   try {
-  //     const req = await fetch(`${API_BASE}/api/joinRequest`, {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({
-  //         roomName,
-  //         userName: username,
-  //         role,
-  //         gender: avatarGender
-  //       })
-  //     });
-  //     console.log("Join request sent, awaiting approval...");
-  //     const data = await req.json();
-  //     if (!data.uid) {
-  //       alert("Unable to request to join");
-  //       return;
-  //     }
-  //     const uid = data.uid;
-      
-  //     const pollInterval = setInterval(async () => {
-  //       const res = await fetch(`${API_BASE}/api/checkApproval/${roomName}/${uid}`);
-  //       const approveData = await res.json();
-  //       if (approveData.approved) {
-  //         clearInterval(pollInterval);
-  //         localStorage.setItem("session", JSON.stringify({
-  //           ...approveData, 
-  //           userName: username,
-  //           prefCameraOn,
-  //           prefMicOn,
-  //           avatarGender
-  //         }));
-  //         onJoinRoom(roomName);
-  //       }
-  //     }, 3000);
-  //   } catch(err) {
-  //     console.error(err);
-  //   }
-  // }
+
   const joinClientFromPreview = async (roomName) => {
     try {
       const res = await fetch(`${API_BASE}/api/token`, {
