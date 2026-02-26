@@ -355,14 +355,14 @@ export default function LandingPage ({onClose}) {
                     borderRadius: '12px',
                     color: 'white',
                     fontSize: '0.9375vw',
-                    width: '6.25vw',
+                    width: page === 1 ? '6.25vw' : '7.5vw',
                     transition: 'all 0.2s ease',
                     '&: hover': {
                         bgcolor: 'linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.1)), #1976d2',
                         transform: 'scale(1.08)',
                     }
                 }}>
-                    {page === 1 ? "Skip" : "Prev"}
+                    {page === 1 ? "Skip" : "Previous"}
                 </Button>
                 <Button 
                 onClick={handleNext}

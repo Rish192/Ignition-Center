@@ -103,6 +103,7 @@ import InnerStepBack from "./components/InnerStepBack";
 import SettingsButton from "./components/SettingsButton";
 import LandingPage from './components/LandingPage';
 import FadeOverlay from "./components/FadeOverlay";
+import HeaderBanner from "./components/HeaderBanner";
 
 const RED_IFRAME_SOURCES = {
   "RHS_1": "https://spo-global.kpmg.com/sites/GO-OI-BUS-GTK-AI/SitePages/Global-AI-credentials.aspx",
@@ -1656,31 +1657,7 @@ function App() {
         <LoadingScreen onEnter={() => setHasEntered(true)} onJoinAMeeting={handleJoinAMeeting}/>
       )}
       {hasEntered && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0, right: 0,
-          width: 'fit-content',
-          display: 'flex',
-          alignItems: 'center',
-          zIndex: 1002,
-        }}>
-          <div style={{
-            background: 'linear-gradient(to right, rgba(13,35,48,1), rgba(0,83,119,1))',
-            color: 'white',
-            padding: '0.7812vw 5.208vw 0.7812vw 1.5625vw',
-            borderRadius: '0px 0px 100px 0px',
-            //borderBottom: "4px solid transparent",
-            //borderImage: "linear-gradient(to right, rgba(0,148,153,0), rgba(0,246,255,1), rgba(0,204,211,0)) 1",
-          }}>
-            <Typography variant="h6"
-            sx={{
-              fontWeight: 'bold', fontSize: '1.25vw',
-            }}>
-              KPMG Virtual Ignition Center
-            </Typography>
-          </div>
-        </div>
+        <HeaderBanner />
       )}
       {hasEntered && !showLandingPopup && (
         <Button 
