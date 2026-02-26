@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const API = axios.create({ baseURL: "http://localhost:5000/api/users" });
+const API_BASE = import.meta.env.VITE_APP_API_BASE;
+
+const API = axios.create({ baseURL: `${API_BASE}/api/users` });
 
 API.interceptors.request.use((req) => {
     const profile = localStorage.getItem("profile");

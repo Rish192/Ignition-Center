@@ -130,6 +130,20 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const [selectedUserIds, setSelectedUserIds] = useState([]); //only host has this list
     const [usersInBreakout, setUsersInBreakout] = useState([]); //every user can check this list
 
+    useEffect(() => {
+        usersInBreakout.forEach(async (uid) => {
+            const remoteUser = client.remoteUsers.find(u => u.uid === uid);
+            if (remoteUser) {
+                console.log(`Force-silencing breakout user ${uid} for Host`);
+                if (remoteUser.audioTrack) {
+                    remoteUser.audioTrack.stop();
+                }
+                await client.unsubscribe(remoteUser, "audio").catch(e => {});
+                await client.unsubscribe(remoteUser, "video").catch(e => {});
+            }
+        });
+    }, [usersInBreakout]);
+
     const toggleBreakout = () => {
         if (breakoutCreated) {
             chatSocketRef.current.send(JSON.stringify({
@@ -144,16 +158,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         }
     };
 
-    const startTargetedBreakout = () => {
-        if (!chatSocketRef.current) return;
-        chatSocketRef.current.send(JSON.stringify({
-            type: "trigger_breakout",
-            uid: session.uid,
-            targets: selectedUserIds
-        }));
-        setShowBreakoutSelector(false);
-    }
-
     const joinBreakoutRoom = async (breakoutRoomName, currentTargets = []) => {
         setBreakoutUsers([]);
 
@@ -165,10 +169,31 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         }
         breakoutClient.removeAllListeners();
 
-        try {
-            await client.unpublish().catch(e => console.warn("Unpublish failed: ", e));
+        const audioTrack = localTracksRef.current.audio;
+        const videoTrack = localTracksRef.current.video;
 
-            users.forEach(async (remoteUser) => {
+        try {
+            if (audioTrack || videoTrack) {
+                const tracks = [];
+                if (audioTrack) tracks.push(audioTrack);
+                if (videoTrack) tracks.push(videoTrack);
+                await client.unpublish(tracks);
+                console.log("SUCCESSFULLY STRIPPED TRACKS FROM MAIN ROOM");
+            }
+        } catch (e) {
+            console.warn("Unpublish from main failed: ", e);
+        }
+
+        try {
+            // if (localTracksRef.current.audio) {
+            //     await client.unpublish(localTracksRef.current.audio).catch(e => console.warn("Unpublish failed: ", e));
+            // }
+            // if (localTracksRef.current.video) {
+            //     await client.unpublish(localTracksRef.current.video).catch(e => console.warn("Unpublish failed: ", e));
+            // }
+            //await client.unpublish().catch(e => console.warn("Unpublish failed: ", e));
+
+            client.remoteUsers.forEach(async (remoteUser) => {
                 if (remoteUser.audioTrack) {
                     remoteUser.audioTrack.stop();
                 }
@@ -279,6 +304,11 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         const currentCamEnabled = localTracksRef.current.video ? localTracksRef.current.video.enabled : false;
 
         try {
+            breakoutClient.remoteUsers.forEach(user => {
+                if (user.audioTrack) user.audioTrack.stop();
+                if (user.videoTrack) user.videoTrack.stop();
+            });
+
             await breakoutClient.leave();
             breakoutClient.removeAllListeners();
 
@@ -727,9 +757,21 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
 
         setUsers(prev => (prev.some(u => u.uid === user.uid) ? prev : [...prev, user]));
     }
+    
+    const inBreakoutRef = useRef(false);
+    useEffect(() => {
+        inBreakoutRef.current = inBreakout;
+    }, [inBreakout]);
 
     const handleUserPublished = async (user, mediaType) => {
-        if (inBreakout) return;
+        if (usersInBreakout.includes(user.uid)) {
+            console.log("IGNORING STREAM FROM BREAKOUT ROOM");
+            return;
+        }
+        if (inBreakoutRef.current) {
+            console.log("BLOCKING MAIN ROOM AUDIO");
+            return;
+        }
 
         await client.subscribe(user, mediaType);
 
@@ -1480,6 +1522,25 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
 
                     const allAssignedUids = Object.values(msg.assignments).flat();
                     setUsersInBreakout(allAssignedUids);
+
+                    if (!allAssignedUids.includes(session.uid)) {
+                        allAssignedUids.forEach(async (uid) => {
+                            const remoteUser = client.remoteUsers.find(u => String(u.uid) === String(uid));
+                            if (remoteUser) {
+                                console.log(`Host silencing user ${uid}`);
+
+                                if (remoteUser.audioTrack) {
+                                    remoteUser.audioTrack.stop();
+                                }
+                                if (remoteUser.videoTrack) {
+                                    remoteUser.videoTrack.stop();
+                                }
+
+                                await client.unsubscribe(remoteUser, "audio").catch(e => {});
+                                await client.unsubscribe(remoteUser, "video").catch(e => {});
+                            }
+                        });
+                    }
 
                     let myBreakoutRoom = null;
                     let myRoomTargets = [];
@@ -4047,7 +4108,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                         const formattedAssignments = {};
                         Object.entries(roomAssignments).forEach(([uid, roomIdx]) => {
                             if (!roomIdx) return;
-                            const rName = `${roomName}_${roomIdx}_breakout`;
+                            const rName = `${session.roomName}_${roomIdx}_breakout`;
                             if (!formattedAssignments[rName]) formattedAssignments[rName] = [];
                             formattedAssignments[rName].push(Number(uid));
                         });

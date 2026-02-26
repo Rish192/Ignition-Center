@@ -70,7 +70,7 @@ export const Experience = forwardRef(
     ref
   ) => {
     const isFPP = viewMode === "FPP";
-    const { scene, animations: globeAnims } = useGLTF("/models/Innovation_Center_V11_Check_v25_Anim.compressed.glb");
+    const { scene, animations: globeAnims } = useGLTF("/models/Innovation_Center_V11_Check_v27_Anim.compressed.glb");
     const libText = useGLTF("/models/Lib_Text_01.glb");
     const sz_globe = useGLTF("/models/SZ_Globe.glb");
     const pod = useGLTF("/models/Pod.glb");
@@ -1660,7 +1660,7 @@ export const Experience = forwardRef(
   }
 );
 
-useGLTF.preload("/models/Innovation_Center_V11_Check_v25_Anim.compressed.glb");
+useGLTF.preload("/models/Innovation_Center_V11_Check_v27_Anim.compressed.glb");
 useGLTF.preload("/models/SeatedAvatar.glb");
 useGLTF.preload("/models/Avatar_Seated_3_LightBlue.glb");
 useGLTF.preload("/models/Lady_AI5.glb");

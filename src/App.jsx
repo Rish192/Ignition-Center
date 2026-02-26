@@ -2439,7 +2439,7 @@ function App() {
         }}/>
       )}
 
-      {hasEntered && !showLandingPopup && !hideUI && !activeRoom && (
+      {/* {hasEntered && !showLandingPopup && !hideUI && !activeRoom && (
         <Button
           onClick={() => {
             window.dispatchEvent(new Event("log-transform"));
@@ -2458,7 +2458,7 @@ function App() {
         }}>
             <SettingsIcon style={{color: 'black', fontSize: '1.5vw'}} />
         </Button>
-      )}
+      )} */}
       {hasEntered && !showLandingPopup && !hideUI && !isInMeetingLobby && pointerEnabled && activeNav === "Entrance" && (
         <FixedJoystick
           bgSrc={JoystickBG5}
