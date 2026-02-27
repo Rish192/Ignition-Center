@@ -126,7 +126,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const [breakoutUsers, setBreakoutUsers] = useState([]);
     const [showBreakoutSelector, setShowBreakoutSelector] = useState(false);
     const [roomAssignments, setRoomAssignments] = useState({}); // {uid: roomIndex}
-    const breakoutRoomCount = 3;
+    const [breakoutRoomCount, setBreakoutRoomCount] = useState(2);
     const [selectedUserIds, setSelectedUserIds] = useState([]); //only host has this list
     const [usersInBreakout, setUsersInBreakout] = useState([]); //every user can check this list
 
@@ -1520,6 +1520,18 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 if (msg.type === "BREAKOUT_START") {
                     setBreakoutCreated(true);
 
+                    const newUIAssignments = {};
+
+                    Object.entries(msg.assignments).forEach(([roomName, uids]) => {
+                        const parts = roomName.split('_');
+                        const roomIdx = parts[parts.length - 2];
+
+                        uids.forEach(uid => {
+                            newUIAssignments[uid] = roomIdx;
+                        });
+                    });
+                    setRoomAssignments(newUIAssignments);
+
                     const allAssignedUids = Object.values(msg.assignments).flat();
                     setUsersInBreakout(allAssignedUids);
 
@@ -1564,6 +1576,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     setBreakoutUsers([]);
                     setSelectedUserIds([]);
                     setUsersInBreakout([]);
+                    setRoomAssignments({});
                     returnToMainRoom();
                     return;
                 }
@@ -3586,6 +3599,78 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                             </Box>
                             );
                         })}
+                        {!inBreakout && breakoutCreated && (
+                            <>
+                                <Typography
+                                    sx={{
+                                        fontSize: '0.78vw',
+                                        fontWeight: 600,
+                                        opacity: 0.9,
+                                        mt: '1.5vw',
+                                        mb: '0.2vw',
+                                        color: '#00f7ff'
+                                    }}
+                                >
+                                    Breakout Rooms
+                                </Typography>
+                                <Divider sx={{ borderColor: 'rgba(0,247,255,0.3)', mb: '0.35vw' }} />
+
+                                {Array.from(new Set(Object.values(roomAssignments)))
+                                    .sort((a,b) => a - b)
+                                    .map((roomIdx) => {
+                                    // Find users assigned to this specific room index
+                                    const usersInThisRoom = users.filter(u => roomAssignments[u.uid] == roomIdx);
+
+                                    return (
+                                        <Box key={roomIdx} sx={{ mb: '1vw' }}>
+                                            <Typography sx={{ fontSize: '0.7vw', color: 'rgba(255,255,255,0.5)', mb: '0.2vw', ml: '0.4vw' }}>
+                                                ROOM {roomIdx} ({usersInThisRoom.length})
+                                            </Typography>
+                                            
+                                            {usersInThisRoom.map((u) => {
+                                                const uname = nameMap[u.uid] || `User ${u.uid}`;
+                                                return (
+                                                    <Box
+                                                        key={u.uid}
+                                                        sx={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            borderRadius: '8px',
+                                                            px: '0.8vw',
+                                                            py: '0.25vw',
+                                                            mb: '2px',
+                                                            bgcolor: 'rgba(255,255,255,0.03)',
+                                                            borderLeft: '2px solid #00f7ff' // Small indicator for breakout
+                                                        }}
+                                                    >
+                                                        <Avatar
+                                                            sx={{
+                                                                width: '1.2vw',
+                                                                height: '1.2vw',
+                                                                fontSize: '0.6vw',
+                                                                mr: '0.5vw',
+                                                                bgcolor: '#333'
+                                                            }}
+                                                        >
+                                                            {getInitial(uname)}
+                                                        </Avatar>
+                                                        <Typography sx={{ fontSize: '0.75vw', opacity: 0.8 }}>
+                                                            {uname}
+                                                        </Typography>
+                                                    </Box>
+                                                );
+                                            })}
+                                            
+                                            {usersInThisRoom.length === 0 && (
+                                                <Typography sx={{ fontSize: '0.65vw', opacity: 0.3, ml: '1vw', fontStyle: 'italic' }}>
+                                                    Empty
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    );
+                                })}
+                            </>
+                        )}
 
                         {activeUserList.filter(u => !looksLikeScreen(u)).length === 0 && (
                         <Typography sx={{ opacity: 0.8 }}>No participants yet.</Typography>
@@ -4037,46 +4122,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             <TiledScreenHeader />
         </Box>
     )}
-    {/* {showBreakoutSelector && (
-        <Box sx={{
-            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            bgcolor: '#1a1a1a', p: 3, borderRadius: 2, border: '1px solid #00f7ff',
-            zIndex: 2000, width: '300px', boxShadow: '0 0 20px rgba(0,0,0,0.5)'
-        }}>
-            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>Assign Rooms</Typography>
-            <Box sx={{ maxHeight: '300px', overflowY: 'auto', mb: 2 }}>
-                {users.filter(u => u.uid !== session.uid).map(u => (
-                    <Box key={u.uid} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
-                        <input 
-                            type="checkbox" 
-                            checked={selectedUserIds.includes(u.uid)}
-                            onChange={(e) => {
-                                if (e.target.checked) {
-                                    setSelectedUserIds(prev => [...prev, u.uid]);
-                                } else {
-                                    setSelectedUserIds(prev => prev.filter(id => id !== u.uid));
-                                }
-                            }}
-                        />
-                        <Typography sx={{ color: 'white' }}>
-                            {nameMap[u.uid] || `User ${u.uid}`}
-                        </Typography>
-                    </Box>
-                ))}
-                {users.length <= 1 && <Typography sx={{ color: 'gray' }}>No other participants</Typography>}
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                <button onClick={() => setShowBreakoutSelector(false)} style={{ background: 'transparent', color: 'white', border: 'none', cursor: 'pointer' }}>Cancel</button>
-                <button 
-                    onClick={startTargetedBreakout}
-                    disabled={selectedUserIds.length === 0}
-                    style={{ backgroundColor: '#4CAF50', color: 'white', padding: '5px 15px', border: 'none', borderRadius: '4px', cursor: 'pointer', opacity: selectedUserIds.length === 0 ? 0.5 : 1 }}
-                >
-                    Start Breakout
-                </button>
-            </Box>
-        </Box>
-    )} */}
+
     {showBreakoutSelector && (
         <Box sx={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -4084,6 +4130,17 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             zIndex: 2000, width: '300px', boxShadow: '0 0 20px rgba(0,0,0,0.5)'
         }}>
             <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>Assign Rooms</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, bgcolor: 'rgba(255,255,255,0.05)', p: 1, borderRadius: 1 }}>
+                <Typography sx={{ color: 'white', fontSize: '0.8vw' }}>Number of Rooms:</Typography>
+                <input 
+                    type="number" 
+                    min="2" 
+                    max="10" 
+                    value={breakoutRoomCount}
+                    onChange={(e) => setBreakoutRoomCount(Math.max(2, parseInt(e.target.value) || 2))}
+                    style={{ width: '50px', background: '#333', color: 'white', border: '1px solid #00f7ff', borderRadius: '4px', padding: '2px' }}
+                />
+            </Box>
             <Box sx={{ maxHeight: '300px', overflowY: 'auto' }}>
                 {users.filter(u => u.uid !== session.uid).map(u => (
                     <Box key={u.uid} sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
@@ -4094,9 +4151,9 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                             style={{ background: '#333', color: 'white', borderRadius: '4px' }}
                         >
                             <option value="">Unassigned</option>
-                            <option value="1">Room 1</option>
-                            <option value="2">Room 2</option>
-                            <option value="3">Room 3</option>
+                            {Array.from({ length: breakoutRoomCount }, (_, i) => i + 1).map(num => (
+                                <option key={num} value={num}>Room {num}</option>
+                            ))}
                         </select>
                     </Box>
                 ))}
