@@ -41,8 +41,8 @@ import RemoveIcon from '@mui/icons-material/Remove';
 
 import { createFastboard, createUI } from '@netless/fastboard';
 
-const APP_IDENTIFIER = "bo1dsM5xEfCUPQFV4xFmrQ/VVeGCDqXYPxEvg";   // From Agora Console - Whiteboard 9LKW0HzNEfCwKrcQj8VaJw/sE2AINp4OAjMWQ
-const SDK_TOKEN = "NETLESSSDK_YWs9b3ExZmtXa0xoTDhiRDdqSiZub25jZT05OGYxYjhkMC1jZTcxLTExZjAtOTQzZC0wMTU1ZTMxMTY2YWQmcm9sZT0wJnNpZz0wNjZjNTM0ZmRhMTFhZjQyYjczNTdjNzBhZTU3OTUxMTc3NDcyNzFmNThiY2M0ODExNGU4Y2Y5ZWU2NDEwZThj";
+const APP_IDENTIFIER = "3ABpgBYIEfGECI1C7bkhnA/vUyLy-UJb7tDCA";   // From Agora Console - Whiteboard 9LKW0HzNEfCwKrcQj8VaJw/sE2AINp4OAjMWQ
+const SDK_TOKEN = "NETLESSSDK_YWs9dFY4c1lPTjJLcEhzR0pUaSZub25jZT03NjdiMzllMC0xNjA5LTExZjEtODQwOC04ZDQyZWRiOTIxOWMmcm9sZT0wJnNpZz0xMmI4MGEyY2VmMzNmN2QyODQxYzVjNjc0OWNlNmExYzE1NDI4ZjllNzRiOWU0ZjAyYzVhZGM0ODhhNDdiMTEw";
 const REGION = "us-sv";
 
 const client = AgoraRTC.createClient({
@@ -3696,7 +3696,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                     //     setSelectedUserForMove(u);
                                     //   }}
                                     onClick={(e) => handleMenuClick(e, u)}
-                                    sx={{ visibility: (breakoutCreated && session?.role === "host") ? 'visible' : 'hidden' }}
+                                    sx={{ visibility: (breakoutCreated && session?.isHost) ? 'visible' : 'hidden' }}
                                     >
                                         <MoreHorizIcon sx={{ fontSize: '1.05vw', opacity: 0.7 }} />
                                     </IconButton>
