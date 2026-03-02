@@ -2,7 +2,7 @@ import React, {useState, useMemo, useEffect, useRef} from 'react'
 import AgoraRTC from 'agora-rtc-sdk-ng'
 import {VideoPlayer} from './VideoPlayer';
 
-import {Box, Typography, Button, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Avatar, Divider, Chip, TextField} from '@mui/material';
+import {Box, Typography, Button, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Avatar, Divider, Chip, TextField, Menu, MenuItem} from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import VideocamIcon from '@mui/icons-material/Videocam';
@@ -129,6 +129,29 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const [breakoutRoomCount, setBreakoutRoomCount] = useState(2);
     const [selectedUserIds, setSelectedUserIds] = useState([]); //only host has this list
     const [usersInBreakout, setUsersInBreakout] = useState([]); //every user can check this list
+    const [anchorEl, setAnchorEl] = useState(null);
+    const [menuTargetUser, setMenuTargetUser] = useState(null);
+    const openMenu = Boolean(anchorEl);
+    const [selectedUserForMove, setSelectedUserForMove] = useState(null);
+
+    const handleMenuClick = (event, user) => {
+        setAnchorEl(event.currentTarget);
+        setMenuTargetUser(user);
+    };
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+        setMenuTargetUser(null);
+    };
+    const handleMoveUser = (roomIdx) => {
+        if (!menuTargetUser) return;
+        const rName = `${session.roomName}_${roomIdx}_breakout`;
+        chatSocketRef.current.send(JSON.stringify({
+            type: "trigger_move_to_breakout",
+            targetUid: menuTargetUser.uid,
+            breakoutRoomName: rName
+        }));
+        handleMenuClose();
+    };
 
     useEffect(() => {
         usersInBreakout.forEach(async (uid) => {
@@ -151,8 +174,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 uid: session.uid
             }));
         } else {
-            // const allOtherUsers = users.filter(u => u.uid !== session.uid).map(u => u.uid);
-            // setSelectedUserIds(allOtherUsers);
             setRoomAssignments({});
             setShowBreakoutSelector(true);
         }
@@ -185,14 +206,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         }
 
         try {
-            // if (localTracksRef.current.audio) {
-            //     await client.unpublish(localTracksRef.current.audio).catch(e => console.warn("Unpublish failed: ", e));
-            // }
-            // if (localTracksRef.current.video) {
-            //     await client.unpublish(localTracksRef.current.video).catch(e => console.warn("Unpublish failed: ", e));
-            // }
-            //await client.unpublish().catch(e => console.warn("Unpublish failed: ", e));
-
             client.remoteUsers.forEach(async (remoteUser) => {
                 if (remoteUser.audioTrack) {
                     remoteUser.audioTrack.stop();
@@ -339,6 +352,28 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             console.error("Failed to return to main: ", e);
         }
     };
+
+    // const handleMoveUser = (roomIdx) => {
+    //     const targetRoomName = `${session.roomName}_${roomIdx}_breakout`;
+
+    //     const updatedAssignments = {...roomAssignments};
+    //     updatedAssignments[selectedUserForMove.uid] = String(roomIdx);
+
+    //     const formatted = {};
+    //     Object.entries(updatedAssignments).forEach(([uid, rIdx]) => {
+    //         const rName = `${session.roomName}_${rIdx}_breakout`;
+    //         if (!formatted[rName]) formatted[rName] = [];
+    //         formatted[rName].push(Number(uid));
+    //     });
+
+    //     chatSocketRef.current.send(JSON.stringify({
+    //         type: "move_user_to_breakout",
+    //         targetUid: selectedUserForMove.uid,
+    //         targetRoomName: targetRoomName,
+    //         assignments: formatted
+    //     }));
+    //     setAnchorEl(null);
+    // }
 
     useEffect(() => {
         rosterTabRef.current = rosterTab;
@@ -1484,7 +1519,8 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             wsUrl =
                 `${u.origin}/ws` +
                 `?roomName=${encodeURIComponent(session.roomName)}` +
-                `&userName=${encodeURIComponent(session.userName)}`;
+                `&userName=${encodeURIComponent(session.userName)}` +
+                `&uid=${session.uid}`;
         } catch {
             wsUrl =
                 base.replace(/^http/, "ws").replace(/\/$/, "") +
@@ -1570,6 +1606,65 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                         joinBreakoutRoom(myBreakoutRoom, myRoomTargets);
                     }
                 }
+                if (msg.type === "MOVE_TO_BREAKOUT") {
+                    console.log(`Targeted move received: Joining ${msg.breakoutRoomName}`);
+
+                    setBreakoutCreated(true);
+                    setUsersInBreakout(msg.allRoomUids);
+
+                    const parts = msg.breakoutRoomName.split('_');
+                    const roomIdx = parts[parts.length - 2];
+                    console.log(`ROOMIDX: ${roomIdx}`);
+                    setRoomAssignments(prev => ({
+                        ...prev,
+                        [session.uid]: roomIdx
+                    }));
+                    joinBreakoutRoom(msg.breakoutRoomName, msg.allRoomUids);
+                }
+                if (msg.type === "USER_MOVED_TO_BREAKOUT") {
+                    console.log(`[Host] User ${msg.uid} moved to breakout room ${msg.breakoutRoomName}. Silencing...`);
+
+                    setUsersInBreakout(msg.allAssignedUids);
+
+                    const silenceUser = async () => {
+                        const remoteUser = client.remoteUsers.find(u => String(u.uid) === String(msg.uid));
+                        if (remoteUser) {
+                            if (remoteUser.audioTrack) remoteUser.audioTrack.stop();
+                            if (remoteUser.videoTrack) remoteUser.videoTrack.stop();
+    
+                            await client.unsubscribe(remoteUser, "audio").catch(e => {});
+                            await client.unsubscribe(remoteUser, "video").catch(e => {});
+                        }
+                    };
+                    silenceUser();
+                }
+                // if (msg.type === "MOVE_TO_BREAKOUT") {
+                //     setBreakoutCreated(true);
+
+                //     const newUIAssignments = {};
+                //     Object.entries(msg.assignments).forEach(([rName, uids]) => {
+                //         const roomIdx = rName.split('_').slice(-2, -1)[0];
+                //         uids.forEach(uid => newUIAssignments[uid] = roomIdx);
+                //     });
+                //     setRoomAssignments(newUIAssignments);
+
+                //     const allAssignedUids = Object.values(msg.assignments).flat();
+                //     setUsersInBreakout(allAssignedUids);
+
+                //     const myRoomTargets = msg.assignments[msg.roomName] || [];
+                //     joinBreakoutRoom(msg.roomName, myRoomTargets);
+                // }
+                // if (msg.type === "UPDATE_BREAKOUT_MAP") {
+                //     const newUIAssignments = {};
+                //     Object.entries(msg.assignments).forEach(([rName, uids]) => {
+                //         const roomIdx = rName.split('_').slice(-2, -1)[0];
+                //         uids.forEach(uid => newUIAssignments[uid] = roomIdx);
+                //     });
+                //     setRoomAssignments(newUIAssignments);
+
+                //     const allAssignedUids = Object.values(msg.assignments).flat();
+                //     setUsersInBreakout(allAssignedUids);
+                // }
                 if (msg.type === "BREAKOUT_STOP") {
                     setBreakoutCreated(false);
                     console.log("Returning to main room");
@@ -3594,7 +3689,17 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                             <ExitToAppIcon />
                                         </IconButton> : null}
                                     </Box>
-                                    <MoreHorizIcon sx={{ fontSize: '1.05vw', opacity: 0.7 }} />
+                                    <IconButton 
+                                      size="small"
+                                    //   onClick={(e) => {
+                                    //     setAnchorEl(e.currentTarget);
+                                    //     setSelectedUserForMove(u);
+                                    //   }}
+                                    onClick={(e) => handleMenuClick(e, u)}
+                                    sx={{ visibility: (breakoutCreated && session?.role === "host") ? 'visible' : 'hidden' }}
+                                    >
+                                        <MoreHorizIcon sx={{ fontSize: '1.05vw', opacity: 0.7 }} />
+                                    </IconButton>
                                 </Box>
                             </Box>
                             );
@@ -4184,6 +4289,23 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             </Box>
         </Box>
     )}
+    <Menu 
+        anchorEl={anchorEl}
+        open={openMenu}
+        onClose={handleMenuClose}
+        PaperProps={{ sx: {bgcolor: '#1a1a1a', color: 'white', border: '1px solid #333'}}}
+    >
+        <Typography sx={{p: 1, fontSize: '0.7vw', opacity: 0.5}}>MOVE TO: </Typography>
+        {Array.from({length: breakoutRoomCount}, (_, i) => i + 1).map((num) => (
+            <MenuItem 
+                key={num} 
+                onClick={() => handleMoveUser(num)}
+                sx={{fontSize: '0.8vw'}}
+            >
+                Room {num}
+            </MenuItem>
+        ))}
+    </Menu>
     </>
     )
 }
