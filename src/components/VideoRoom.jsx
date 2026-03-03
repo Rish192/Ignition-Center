@@ -132,7 +132,8 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const [anchorEl, setAnchorEl] = useState(null);
     const [menuTargetUser, setMenuTargetUser] = useState(null);
     const openMenu = Boolean(anchorEl);
-    const [selectedUserForMove, setSelectedUserForMove] = useState(null);
+    const roomTargetsRef = useRef([]); // to keep track of current breakout room targets
+    const [currentBreakoutRoomName, setCurrentBreakoutRoomName] = useState(null); //to track current Breakout room name
 
     const handleMenuClick = (event, user) => {
         setAnchorEl(event.currentTarget);
@@ -180,7 +181,9 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     };
 
     const joinBreakoutRoom = async (breakoutRoomName, currentTargets = []) => {
+        roomTargetsRef.current = currentTargets;
         setBreakoutUsers([]);
+        setCurrentBreakoutRoomName(breakoutRoomName);
 
         const currentMicMuted = localTracksRef.current.audio ? localTracksRef.current.audio.muted : true;
         const currentCamEnabled = localTracksRef.current.video ? localTracksRef.current.video.enabled : false;
@@ -249,9 +252,11 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             breakoutClient.on('user-joined', (user) => {
                 if (looksLikeScreen(user)) return;
 
+                fetchAndSetName(user.uid);
+
                 setBreakoutUsers(prev => {
-                    const isActuallyInBreakout = currentTargets.includes(user.uid);
-                    const exists = prev.find(u => u.uid === user.uid);
+                    const isActuallyInBreakout = roomTargetsRef.current.includes(user.uid);
+                    const exists = prev.find(u => String(u.uid) === String(user.uid));
                     if (exists || !isActuallyInBreakout) return prev;
                     // Add user immediately even if their mic/cam is off
                     return [...prev, { 
@@ -269,34 +274,21 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 if (looksLikeScreen(user)) return;
 
                 await breakoutClient.subscribe(user, mediaType);
+
+                if (!nameMap[user.uid]) {
+                    fetchAndSetName(user.uid);
+                }
                 setBreakoutUsers(prev => prev.map(u => {
-                    if (u.uid !== user.uid) return u;
+                    if (String(u.uid) !== String(user.uid)) return u;
                     return mediaType === 'video'
                         ? {...u, videoTrack: user.videoTrack}
                         : {...u, audioTrack: user.audioTrack, micOn: true}
                 }));
                 if (mediaType === 'audio') user.audioTrack?.play();
-                // if (mediaType === 'video') {
-                //     // setBreakoutUsers(prev => [...prev, user]);
-                //     setBreakoutUsers(prev => {
-                //         const exists = prev.find(u => u.uid === user.uid);
-                //         if (exists) return prev.map(u => u.uid === user.uid ? { ...u, videoTrack: user.videoTrack } : u);
-                //         return [...prev, user];
-                //     });
-                // }
-                // if (mediaType === 'audio') {
-                //     user.audioTrack?.play();
-                //     setBreakoutUsers(prev => {
-                //         const exists = prev.find(u => u.uid === user.uid);
-                //         if (exists) return prev.map(u => u.uid === user.uid ? { ...u, audioTrack: user.audioTrack, micOn: true } : u);
-                //         return [...prev, user];
-                //     });
-                // }
             });
             breakoutClient.on('user-unpublished', (user, mediaType) => {
-                // setBreakoutUsers(prev => prev.filter(u => u.uid !== user.uid));
                 setBreakoutUsers(prev => prev.map(u => {
-                    if (u.uid !== user.uid) return u;
+                    if (String(u.uid) !== String(user.uid)) return u;
                     if (mediaType === 'video') return { ...u, videoTrack: null };
                     if (mediaType === 'audio') return { ...u, audioTrack: null, micOn: false };
                     return u;
@@ -345,6 +337,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             }
 
             setInBreakout(false);
+            setCurrentBreakoutRoomName(null);
             setBreakoutUsers([]);
             setSelectedUserIds([]);
             setUsersInBreakout([]);
@@ -794,9 +787,13 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     }
     
     const inBreakoutRef = useRef(false);
+    const currentBreakoutRoomNameRef = useRef(null);
     useEffect(() => {
         inBreakoutRef.current = inBreakout;
     }, [inBreakout]);
+    useEffect(() => {
+        currentBreakoutRoomNameRef.current = currentBreakoutRoomName;
+    }, [currentBreakoutRoomName]);
 
     const handleUserPublished = async (user, mediaType) => {
         if (usersInBreakout.includes(user.uid)) {
@@ -1552,6 +1549,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         socket.onmessage = (evt) => {
             try {
                 const msg = JSON.parse(evt.data);
+                console.log("Raw Socket Message received:", msg.type, msg);
 
                 if (msg.type === "BREAKOUT_START") {
                     setBreakoutCreated(true);
@@ -1622,9 +1620,19 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     joinBreakoutRoom(msg.breakoutRoomName, msg.allRoomUids);
                 }
                 if (msg.type === "USER_MOVED_TO_BREAKOUT") {
+                    if (inBreakout) return; // no need to update state or silence if already in a breakout
                     console.log(`[Host] User ${msg.uid} moved to breakout room ${msg.breakoutRoomName}. Silencing...`);
 
                     setUsersInBreakout(msg.allAssignedUids);
+
+                    if (msg.breakoutRoomName) {
+                        const parts = msg.breakoutRoomName.split('_');
+                        const roomIdx = parts[parts.length - 2];
+                        setRoomAssignments(prev => ({
+                            ...prev,
+                            [msg.uid]: roomIdx
+                        }));
+                    }
 
                     const silenceUser = async () => {
                         const remoteUser = client.remoteUsers.find(u => String(u.uid) === String(msg.uid));
@@ -1638,33 +1646,24 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     };
                     silenceUser();
                 }
-                // if (msg.type === "MOVE_TO_BREAKOUT") {
-                //     setBreakoutCreated(true);
+                if (msg.type === "BREAKOUT_USER_ADDED") {
+                    setUsersInBreakout(prev => {
+                        if (prev.includes(msg.uid)) return prev;
+                        return [...prev, msg.uid];
+                    });
 
-                //     const newUIAssignments = {};
-                //     Object.entries(msg.assignments).forEach(([rName, uids]) => {
-                //         const roomIdx = rName.split('_').slice(-2, -1)[0];
-                //         uids.forEach(uid => newUIAssignments[uid] = roomIdx);
-                //     });
-                //     setRoomAssignments(newUIAssignments);
+                    if (inBreakoutRef.current && currentBreakoutRoomNameRef.current === msg.breakoutRoomName) {
+                        setUsersInBreakout(msg.allRoomUids);
+                        roomTargetsRef.current = msg.allRoomUids;
 
-                //     const allAssignedUids = Object.values(msg.assignments).flat();
-                //     setUsersInBreakout(allAssignedUids);
-
-                //     const myRoomTargets = msg.assignments[msg.roomName] || [];
-                //     joinBreakoutRoom(msg.roomName, myRoomTargets);
-                // }
-                // if (msg.type === "UPDATE_BREAKOUT_MAP") {
-                //     const newUIAssignments = {};
-                //     Object.entries(msg.assignments).forEach(([rName, uids]) => {
-                //         const roomIdx = rName.split('_').slice(-2, -1)[0];
-                //         uids.forEach(uid => newUIAssignments[uid] = roomIdx);
-                //     });
-                //     setRoomAssignments(newUIAssignments);
-
-                //     const allAssignedUids = Object.values(msg.assignments).flat();
-                //     setUsersInBreakout(allAssignedUids);
-                // }
+                        setBreakoutUsers(prev => {
+                            const exists = prev.find(u => String(u.uid) === String(msg.uid));
+                            if (exists) return prev;
+                            return [...prev, { uid: msg.uid, videoTrack: null, audioTrack: null, micOn: false }];
+                        });
+                        console.log("Current breakout users:", roomTargetsRef.current);
+                    }
+                }
                 if (msg.type === "BREAKOUT_STOP") {
                     setBreakoutCreated(false);
                     console.log("Returning to main room");
@@ -3603,7 +3602,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                 mb: '0.35vw',
                             }}
                         />
-                        {activeUserList //users
+                        {activeUserList
                         .filter(u => !looksLikeScreen(u))
                         .filter(u => (nameMap[u.uid] || `User ${u.uid}`).toLowerCase().includes(searchTerm.toLowerCase()))
                         .map((u) => {
@@ -3691,10 +3690,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                     </Box>
                                     <IconButton 
                                       size="small"
-                                    //   onClick={(e) => {
-                                    //     setAnchorEl(e.currentTarget);
-                                    //     setSelectedUserForMove(u);
-                                    //   }}
                                     onClick={(e) => handleMenuClick(e, u)}
                                     sx={{ visibility: (breakoutCreated && session?.isHost) ? 'visible' : 'hidden' }}
                                     >
