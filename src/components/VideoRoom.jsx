@@ -155,6 +155,9 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     };
 
     useEffect(() => {
+        if (usersInBreakout.length === 0) return; //no trying to silence if no one is in breakout
+        if (inBreakout) return; //no need to silence if you're in the breakout
+
         usersInBreakout.forEach(async (uid) => {
             const remoteUser = client.remoteUsers.find(u => u.uid === uid);
             if (remoteUser) {
@@ -166,7 +169,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 await client.unsubscribe(remoteUser, "video").catch(e => {});
             }
         });
-    }, [usersInBreakout]);
+    }, [usersInBreakout, inBreakout]);
 
     const toggleBreakout = () => {
         if (breakoutCreated) {
@@ -314,16 +317,31 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 if (user.videoTrack) user.videoTrack.stop();
             });
 
+            const localTracks = [];
+            if (localTracksRef.current.audio) localTracks.push(localTracksRef.current.audio);
+            if (localTracksRef.current.video) localTracks.push(localTracksRef.current.video);
+
+            if (localTracks.length > 0) {
+                await breakoutClient.unpublish(localTracks).catch(e => console.log("Already unpublished from breakout: ", e));
+            }
+
             await breakoutClient.leave();
             breakoutClient.removeAllListeners();
-
-            users.forEach(async (remoteUser) => {
-                if (remoteUser.uid !== session.uid) {
-                    await client.subscribe(remoteUser, "audio").catch(e => {});
-                    await client.subscribe(remoteUser, "video").catch(e => {});
+            
+            setInBreakout(false);
+            inBreakoutRef.current = false;
+            setCurrentBreakoutRoomName(null);
+            currentBreakoutRoomNameRef.current = null;
+            
+            for (const remoteUser of client.remoteUsers) {
+                // Only subscribe if they are NOT in the usersInBreakout list 
+                // (in case some other rooms are still active)
+                if (!usersInBreakout.includes(remoteUser.uid)) {
+                    await client.subscribe(remoteUser, "audio").catch(() => {});
+                    await client.subscribe(remoteUser, "video").catch(() => {});
                     remoteUser.audioTrack?.play();
                 }
-            });
+            }
 
             if (localTracksRef.current.audio) await localTracksRef.current.audio.setMuted(currentMicMuted);
             if (localTracksRef.current.video) await localTracksRef.current.video.setEnabled(currentCamEnabled);
@@ -335,9 +353,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             if (toPublish.length > 0) {
                 await client.publish(toPublish);
             }
-
-            setInBreakout(false);
-            setCurrentBreakoutRoomName(null);
             setBreakoutUsers([]);
             setSelectedUserIds([]);
             setUsersInBreakout([]);
@@ -1094,7 +1109,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     }, [session]);
 
     const leaveCall = async () => {
-        //triggerDoorClose();
         await new Promise((r) => setTimeout(r, 1200));
         try {
             // screenTrack (if created) stored maybe in ref; if you created it, put it into ref.screen
