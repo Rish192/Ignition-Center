@@ -134,6 +134,8 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const openMenu = Boolean(anchorEl);
     const roomTargetsRef = useRef([]); // to keep track of current breakout room targets
     const [currentBreakoutRoomName, setCurrentBreakoutRoomName] = useState(null); //to track current Breakout room name
+    const inBreakoutRef = useRef(false);
+    const currentBreakoutRoomNameRef = useRef(null);
 
     const handleMenuClick = (event, user) => {
         setAnchorEl(event.currentTarget);
@@ -245,6 +247,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             }
 
             setInBreakout(true);
+            inBreakoutRef.current = true;
             setBreakoutUsers([{
                 uid: session.uid,
                 videoTrack: currentCamEnabled ? localTracksRef.current.video : null,
@@ -303,8 +306,8 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     };
 
     const returnToMainRoom = async () => {
-        if (!inBreakout) {
-            setInBreakout(false);
+        if (!inBreakoutRef.current) {
+            console.log("NOT IN BREAKOUT, NO NEED TO RETURN");
             return;
         }
 
@@ -312,6 +315,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         const currentCamEnabled = localTracksRef.current.video ? localTracksRef.current.video.enabled : false;
 
         try {
+            console.log("CLEANING BREAKOUT: STOPPING ALL REMOTE TRACKS");
             breakoutClient.remoteUsers.forEach(user => {
                 if (user.audioTrack) user.audioTrack.stop();
                 if (user.videoTrack) user.videoTrack.stop();
@@ -327,19 +331,25 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
 
             await breakoutClient.leave();
             breakoutClient.removeAllListeners();
+            console.log("BREAKOUT CLIENT: PROPERLY AND COMPLETELY DISCONNECTED");
             
             setInBreakout(false);
             inBreakoutRef.current = false;
             setCurrentBreakoutRoomName(null);
             currentBreakoutRoomNameRef.current = null;
             
+            console.log("MAIN ROOM: RE-SUBSCRIBING TO MAIN PARTICIPANTS");
             for (const remoteUser of client.remoteUsers) {
                 // Only subscribe if they are NOT in the usersInBreakout list 
                 // (in case some other rooms are still active)
                 if (!usersInBreakout.includes(remoteUser.uid)) {
-                    await client.subscribe(remoteUser, "audio").catch(() => {});
-                    await client.subscribe(remoteUser, "video").catch(() => {});
-                    remoteUser.audioTrack?.play();
+                    if (remoteUser.hasAudio) {
+                        await client.subscribe(remoteUser, "audio").catch(() => {});
+                        remoteUser.audioTrack?.play();
+                    }
+                    if (remoteUser.hasVideo) {
+                        await client.subscribe(remoteUser, "video").catch(() => {});
+                    }
                 }
             }
 
@@ -801,8 +811,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         setUsers(prev => (prev.some(u => u.uid === user.uid) ? prev : [...prev, user]));
     }
     
-    const inBreakoutRef = useRef(false);
-    const currentBreakoutRoomNameRef = useRef(null);
     useEffect(() => {
         inBreakoutRef.current = inBreakout;
     }, [inBreakout]);
@@ -1111,8 +1119,37 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const leaveCall = async () => {
         await new Promise((r) => setTimeout(r, 1200));
         try {
+
+            if (inBreakoutRef.current) {
+                console.log("[LEAVECALL] USER IS IN BREAKOUT, LEAVING BREAKOUT FIRST");
+                try {
+                    breakoutClient.remoteUsers.forEach(user => {
+                        user.audioTrack?.stop();
+                        user.videoTrack?.stop();
+                    });
+
+                    const localTracks = [];
+                    if (localTracksRef.current.audio) localTracks.push(localTracksRef.current.audio);
+                    if (localTracksRef.current.video) localTracks.push(localTracksRef.current.video);
+
+                    if (localTracks.length > 0) {
+                        await breakoutClient.unpublish(localTracks).catch(() => {});
+                    }
+
+                    await breakoutClient.leave();
+                    breakoutClient.removeAllListeners();
+
+                    inBreakoutRef.current = false;
+                    setInBreakout(false);
+                    currentBreakoutRoomNameRef.current = null;
+                    setCurrentBreakoutRoomName(null);
+                    console.log("[LeaveCall] Breakout client disconnected successfully.");
+                } catch (err) {
+                    console.warn("[LeaveCall] Error leaving breakout:", err);
+                }
+            }
+
             // screenTrack (if created) stored maybe in ref; if you created it, put it into ref.screen
-            
             if (localTracksRef.current.screen) {
                 const currentScreenUid = screenUid;
                 try { 
@@ -1206,6 +1243,9 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             setCameraOn(true);
             setMicOn(true);
             setJoined(false);
+            setBreakoutUsers([]);
+            setSelectedUserIds([]);
+            setUsersInBreakout([]);
             if (chatSocketRef.current) {
                 try { chatSocketRef.current.close(); } catch (_) {}
                 chatSocketRef.current = null;
