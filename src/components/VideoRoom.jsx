@@ -1438,6 +1438,38 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             });
             
             await client.join(session.appId, session.roomName, session.token, session.uid);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/rooms`);
+                const rooms = await response.json();
+                const currentRoomData = rooms.find(r => r.roomName === session.roomName);
+
+                if (currentRoomData?.currentBreakout?.active) {
+                    const breakoutData = currentRoomData.currentBreakout;
+
+                    setBreakoutCreated(true);
+
+                    const allAssignedUids = [];
+                    const newRoomAssignments = {};
+
+                    Object.entries(breakoutData.assignments).forEach(([roomName, uids]) => {
+                        const parts = roomName.split("_");
+                        const roomIdx = parts[parts.length - 2];
+
+                        uids.forEach(uid => {
+                            allAssignedUids.push(uid);
+                            newRoomAssignments[uid] = roomIdx;
+                        });
+                    });
+                    
+                    setUsersInBreakout(allAssignedUids);
+                    setRoomAssignments(newRoomAssignments);
+
+                    console.log("LATE JOINER SYNCED BREAKOUT STATE: ", {allAssignedUids, newRoomAssignments});
+                }
+            } catch (e) {
+                console.warn("Failed to sync breakout state: ", e);
+            }
             setNameMap(prev => ({ ...prev, [session.uid]: session.userName }));
             if (session?.gender) {
                 setGenderMap(prev => ({
@@ -2383,7 +2415,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             }}>
                 <GridViewIcon sx={{ fontSize: '0.9vw', color: 'white' }} />
                 <Typography sx={{ fontSize: '0.8333vw', fontWeight: 700, color: 'white' }}>
-                    {inBreakout ? "Tiled-Breakout" : "Tiled Screen"}
+                    {inBreakout ? `${currentBreakoutRoomNameRef.current}` : "Tiled Screen"}
                 </Typography>
             </Box>
             <Box
@@ -3745,7 +3777,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                     <IconButton 
                                       size="small"
                                     onClick={(e) => handleMenuClick(e, u)}
-                                    sx={{ visibility: (breakoutCreated && session?.isHost) ? 'visible' : 'hidden' }}
+                                    sx={{ visibility: (breakoutCreated && session?.isHost && String(u.uid) !== String(session?.uid)) ? 'visible' : 'hidden' }}
                                     >
                                         <MoreHorizIcon sx={{ fontSize: '1.05vw', opacity: 0.7 }} />
                                     </IconButton>
