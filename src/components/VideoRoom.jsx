@@ -2,7 +2,7 @@ import React, {useState, useMemo, useEffect, useRef} from 'react'
 import AgoraRTC from 'agora-rtc-sdk-ng'
 import {VideoPlayer} from './VideoPlayer';
 
-import {Box, Typography, Button, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Avatar, Divider, Chip, TextField, Menu, MenuItem} from '@mui/material';
+import {Box, Typography, Button, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Avatar, Divider, Chip, TextField, Menu, MenuItem, InputAdornment, Input} from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import VideocamIcon from '@mui/icons-material/Videocam';
@@ -31,6 +31,8 @@ import step2 from '../assets/step2.png';
 import step3 from '../assets/step3.mp4';
 import CameraswitchIcon from "@mui/icons-material/Cameraswitch";
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 import PeopleIcon from '@mui/icons-material/People';
 import GridViewIcon from '@mui/icons-material/GridView';
@@ -371,27 +373,25 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         }
     };
 
-    // const handleMoveUser = (roomIdx) => {
-    //     const targetRoomName = `${session.roomName}_${roomIdx}_breakout`;
+    const hasAssignments = Object.values(roomAssignments).some(val => val !== "");
+    const handleCountChange = (val) => {
+        if (val === '') {
+            setBreakoutRoomCount('');
+            return;
+        }
+        let num = parseInt(val) || 1;
+        if (isNaN(num)) return;
 
-    //     const updatedAssignments = {...roomAssignments};
-    //     updatedAssignments[selectedUserForMove.uid] = String(roomIdx);
+        if (num > 10) num = 10;
+        // if (num < 0) num = 0;
 
-    //     const formatted = {};
-    //     Object.entries(updatedAssignments).forEach(([uid, rIdx]) => {
-    //         const rName = `${session.roomName}_${rIdx}_breakout`;
-    //         if (!formatted[rName]) formatted[rName] = [];
-    //         formatted[rName].push(Number(uid));
-    //     });
-
-    //     chatSocketRef.current.send(JSON.stringify({
-    //         type: "move_user_to_breakout",
-    //         targetUid: selectedUserForMove.uid,
-    //         targetRoomName: targetRoomName,
-    //         assignments: formatted
-    //     }));
-    //     setAnchorEl(null);
-    // }
+        setBreakoutRoomCount(num);
+    };
+    const handleBlur = () => {
+        if (breakoutRoomCount === '' || breakoutRoomCount < 1) {
+            setBreakoutRoomCount(1);
+        }
+    };
 
     useEffect(() => {
         rosterTabRef.current = rosterTab;
@@ -3009,19 +3009,20 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 </Button>
             </Tooltip>
             {session?.role === "employee" && session?.isHost && !inBreakout && (
-                <button
+                <Button
                 onClick={toggleBreakout}
-                style={{
+                sx={{
                     backgroundColor: breakoutCreated ? '#ff4d4d' : '#4CAF50',
                     color: 'white',
-                    padding: '1vw',
+                    padding: '0.5vw',
                     border: 'none',
                     cursor: 'pointer',
-                    fontWeight: 'bold'
+                    fontWeight: 'bold',
+                    textTransform: 'none',
                 }}
                 >
                     {breakoutCreated ? 'Stop' : 'Start'}
-                </button>
+                </Button>
             )}
         </Box>
     </Box>
@@ -4312,29 +4313,72 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     {showBreakoutSelector && (
         <Box sx={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            bgcolor: '#1a1a1a', p: 3, borderRadius: 2, border: '1px solid #00f7ff',
-            zIndex: 2000, width: '300px', boxShadow: '0 0 20px rgba(0,0,0,0.5)'
+            bgcolor: '#1a1a1a', p: '3vh', borderRadius: '1vw', border: '1px solid #00f7ff',
+            zIndex: 2000, width: '25vw', height: '40vh', display: 'flex', flexDirection: 'column', boxShadow: '0 0 20px rgba(0,0,0,0.5)'
         }}>
-            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>Assign Rooms</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, bgcolor: 'rgba(255,255,255,0.05)', p: 1, borderRadius: 1 }}>
+            <Typography variant="h6" sx={{ color: 'white', mb: '2vh', fontSize: '1.2vw', flexShrink: 0 }}>Assign Rooms</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '1vw', mb: '3vh', bgcolor: 'rgba(255,255,255,0.05)', p: '1vh 1vw', borderRadius: '0.5vw', flexShrink: 0 }}>
                 <Typography sx={{ color: 'white', fontSize: '0.8vw' }}>Number of Rooms:</Typography>
-                <input 
-                    type="number" 
-                    min="2" 
-                    max="10" 
-                    value={breakoutRoomCount}
-                    onChange={(e) => setBreakoutRoomCount(Math.max(2, parseInt(e.target.value) || 2))}
-                    style={{ width: '50px', background: '#333', color: 'white', border: '1px solid #00f7ff', borderRadius: '4px', padding: '2px' }}
+                <TextField 
+                  variant="outlined"
+                  size="small"
+                  value={breakoutRoomCount}
+                  onChange={(e) => handleCountChange(e.target.value)}
+                  onBlur={handleBlur}
+                  inputProps={{ min: 0, max: 10, type: 'text', inputMode: 'numeric' }}
+                  sx={{
+                    width: '5vw',
+                    '& .MuiOutlinedInput-root': {
+                      bgcolor: '#333',
+                      color: 'white',
+                      fontSize: '0.8vw',
+                      '& fieldset': { borderColor: '#00f7ff' },
+                      '&:hover fieldset': { borderColor: '#00f7ff' },
+                      '&.Mui-focused fieldset': { borderColor: '#00f7ff' },
+                      // Hide the default browser arrows
+                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                        display: 'none',
+                      }
+                    }
+                  }}
+                  InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="end">
+                            <Box sx={{ display: 'flex', flexDirection: 'column', mr: '-0.5vw' }}>
+                                <IconButton 
+                                    size="small" 
+                                    onClick={() => handleCountChange(breakoutRoomCount + 1)}
+                                    sx={{ color: '#00f7ff', p: 0 }}
+                                >
+                                    <KeyboardArrowUpIcon fontSize="inherit" />
+                                </IconButton>
+                                <IconButton 
+                                    size="small" 
+                                    onClick={() => handleCountChange(breakoutRoomCount - 1)}
+                                    sx={{ color: '#00f7ff', p: 0 }}
+                                >
+                                    <KeyboardArrowDownIcon fontSize="inherit" />
+                                </IconButton>
+                            </Box>
+                        </InputAdornment>
+                    )
+                  }}
                 />
             </Box>
-            <Box sx={{ maxHeight: '300px', overflowY: 'auto' }}>
+            <Box sx={{ flexGrow: 1, overflowY: 'auto', pr: '0.5vw',
+                '&::-webkit-scrollbar': { width: '0.2083vw' },
+                '&::-webkit-scrollbar-track': { background: 'transparent' },
+                '&::-webkit-scrollbar-thumb': { borderRadius: '3px' },
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#5fb2e2ff transparent'
+             }}>
                 {users.filter(u => u.uid !== session.uid).map(u => (
-                    <Box key={u.uid} sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                    <Box key={u.uid} sx={{ display: 'flex', justifyContent: 'space-between', mb: '1.5vh', alignItems: 'center' }}>
                         <Typography sx={{ color: 'white' }}>{nameMap[u.uid] || u.uid}</Typography>
                         <select 
                             value={roomAssignments[u.uid] || ""} 
                             onChange={(e) => setRoomAssignments(prev => ({...prev, [u.uid]: e.target.value}))}
-                            style={{ background: '#333', color: 'white', borderRadius: '4px' }}
+                            style={{ background: '#333', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '0.4vh 0.8vw' }}
                         >
                             <option value="">Unassigned</option>
                             {Array.from({ length: breakoutRoomCount }, (_, i) => i + 1).map(num => (
@@ -4344,9 +4388,10 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     </Box>
                 ))}
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-                <button style = {{cursor: 'pointer'}} onClick={() => setShowBreakoutSelector(false)}>Cancel</button>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: '0.8vw', mt: '2vh', flexShrink: 0 }}>
+                <button style = {{cursor: 'pointer', fontSize: '0.8vw', border: 'none', borderRadius: '4px'}} onClick={() => setShowBreakoutSelector(false)}>Cancel</button>
                 <button 
+                    disabled={!hasAssignments}
                     onClick={() => {
                         const formattedAssignments = {};
                         Object.entries(roomAssignments).forEach(([uid, roomIdx]) => {
@@ -4363,7 +4408,16 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                         }));
                         setShowBreakoutSelector(false);
                     }}
-                    style={{ backgroundColor: '#4CAF50', color: 'white', padding: '10px', cursor: 'pointer' }}
+                    style={{ 
+                        backgroundColor: hasAssignments ? '#4CAF50' : '#444', 
+                        color: hasAssignments ? 'white' : '#888', 
+                        padding: '1vh 1vw', 
+                        cursor: 'pointer', 
+                        fontSize: '0.8vw', 
+                        border: 'none',
+                        borderRadius: '4px',
+                        transition: 'all 0.2s ease',
+                    }}
                 >
                     Launch Rooms
                 </button>
