@@ -3014,11 +3014,14 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 sx={{
                     backgroundColor: breakoutCreated ? '#ff4d4d' : '#4CAF50',
                     color: 'white',
-                    padding: '0.5vw',
+                    width: '5vw',
+                    height: '2.5vw',
+                    padding: 0,
                     border: 'none',
                     cursor: 'pointer',
                     fontWeight: 'bold',
                     textTransform: 'none',
+                    fontSize: '0.8333vw',
                 }}
                 >
                     {breakoutCreated ? 'Stop' : 'Start'}
@@ -4328,10 +4331,10 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                   inputProps={{ min: 0, max: 10, type: 'text', inputMode: 'numeric' }}
                   sx={{
                     width: '5vw',
+                    '& .MuiInputBase-input': { fontSize:'0.7292vw', color:'white' },
                     '& .MuiOutlinedInput-root': {
                       bgcolor: '#333',
                       color: 'white',
-                      fontSize: '0.8vw',
                       '& fieldset': { borderColor: '#00f7ff' },
                       '&:hover fieldset': { borderColor: '#00f7ff' },
                       '&.Mui-focused fieldset': { borderColor: '#00f7ff' },
@@ -4344,20 +4347,20 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                   InputProps={{
                     endAdornment: (
                         <InputAdornment position="end">
-                            <Box sx={{ display: 'flex', flexDirection: 'column', mr: '-0.5vw' }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', mr: '-0.5vw', overflow: 'hidden' }}>
                                 <IconButton 
                                     size="small" 
                                     onClick={() => handleCountChange(breakoutRoomCount + 1)}
                                     sx={{ color: '#00f7ff', p: 0 }}
                                 >
-                                    <KeyboardArrowUpIcon fontSize="inherit" />
+                                    <KeyboardArrowUpIcon sx={{fontSize: "1vw"}} />
                                 </IconButton>
                                 <IconButton 
                                     size="small" 
                                     onClick={() => handleCountChange(breakoutRoomCount - 1)}
                                     sx={{ color: '#00f7ff', p: 0 }}
                                 >
-                                    <KeyboardArrowDownIcon fontSize="inherit" />
+                                    <KeyboardArrowDownIcon sx={{fontSize: "1vw"}} />
                                 </IconButton>
                             </Box>
                         </InputAdornment>
