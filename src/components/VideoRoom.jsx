@@ -250,6 +250,21 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
 
             setInBreakout(true);
             inBreakoutRef.current = true;
+
+            chatSocketRef.current.send(JSON.stringify({
+                type: "sync_room",
+                currentRoom: breakoutRoomName,
+            }));
+            setChatMessages((prev) => [
+                ...prev,
+                {
+                    id: `system-breakout-join-${Date.now()}`,
+                    userName: "",
+                    text: `You joined ${breakoutRoomName}`,
+                    ts: Date.now(),
+                }
+            ]);
+
             setBreakoutUsers([{
                 uid: session.uid,
                 videoTrack: currentCamEnabled ? localTracksRef.current.video : null,
@@ -337,6 +352,22 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             
             setInBreakout(false);
             inBreakoutRef.current = false;
+
+            chatSocketRef.current.send(JSON.stringify({
+                type: "sync_room",
+                currentRoom: session.roomName,
+            }));
+
+            setChatMessages((prev) => [
+                ...prev,
+                {
+                    id: `system-main-return-${Date.now()}`,
+                    userName: "",
+                    text: `You returned to ${session.roomName}`,
+                    ts: Date.now(),
+                },
+            ]);
+
             setCurrentBreakoutRoomName(null);
             currentBreakoutRoomNameRef.current = null;
             
@@ -1621,6 +1652,12 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             console.log("[Chat] Connected");
             setChatStatus("connected");
             setChatConnected(true);
+
+            chatSocketRef.current.send(JSON.stringify({
+                type: "sync_room",
+                currentRoom: session.roomName,
+            }));
+
             setChatMessages((prev) => [
                 ...prev,
                 {
@@ -1761,6 +1798,16 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     return;
                 }
                 if (msg.type !== "chat") return;
+
+                const myCurrentRoom = inBreakoutRef.current 
+                    ? currentBreakoutRoomNameRef.current 
+                    : session.roomName;
+
+                if (msg.roomName !== myCurrentRoom) {
+                    console.log(`[Chat] Ignoring message from another room: ${msg.roomName} (current: ${myCurrentRoom})`);
+                    return;
+                }
+
                 setChatMessages((prev) => [
                     ...prev,
                     {
@@ -2017,7 +2064,15 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             console.warn("[Chat] Cannot send, socket not open");
             return;
         }
-        const payload = { type: "chat", text };
+
+        const targetRoom = inBreakoutRef.current
+            ? currentBreakoutRoomNameRef.current
+            : session.roomName;
+        
+        const payload = { 
+            type: "chat", 
+            text, 
+            roomName: targetRoom };
         try {
             socket.send(JSON.stringify(payload));
             setChatInput("");
@@ -4331,10 +4386,9 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                   inputProps={{ min: 0, max: 10, type: 'text', inputMode: 'numeric' }}
                   sx={{
                     width: '5vw',
-                    '& .MuiInputBase-input': { fontSize:'0.7292vw', color:'white' },
+                    '& .MuiInputBase-input': { fontSize:'0.7292vw', color:'white !important' },
                     '& .MuiOutlinedInput-root': {
                       bgcolor: '#333',
-                      color: 'white',
                       '& fieldset': { borderColor: '#00f7ff' },
                       '&:hover fieldset': { borderColor: '#00f7ff' },
                       '&.Mui-focused fieldset': { borderColor: '#00f7ff' },

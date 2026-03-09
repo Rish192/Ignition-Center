@@ -759,7 +759,8 @@ export default function RoomsLobby({onLeaveSession, onClose, onExplore, onContin
         ...roomData,
         participantCount: count,
       });
-      console.log("Selected room with participant count: ", selectedRoom)
+      console.log("Selected room with participant count: ", selectedRoom);
+      setRoomName(roomName);
       setAdminStep("preview");
       return;
     } catch (err) {
