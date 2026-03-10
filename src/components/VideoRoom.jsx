@@ -4393,33 +4393,33 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                       '&:hover fieldset': { borderColor: '#00f7ff' },
                       '&.Mui-focused fieldset': { borderColor: '#00f7ff' },
                       // Hide the default browser arrows
-                      '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
-                        display: 'none',
-                      }
+                    //   '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
+                    //     display: 'none',
+                    //   }
                     }
                   }}
-                  InputProps={{
-                    endAdornment: (
-                        <InputAdornment position="end">
-                            <Box sx={{ display: 'flex', flexDirection: 'column', mr: '-0.5vw', overflow: 'hidden' }}>
-                                <IconButton 
-                                    size="small" 
-                                    onClick={() => handleCountChange(breakoutRoomCount + 1)}
-                                    sx={{ color: '#00f7ff', p: 0 }}
-                                >
-                                    <KeyboardArrowUpIcon sx={{fontSize: "1vw"}} />
-                                </IconButton>
-                                <IconButton 
-                                    size="small" 
-                                    onClick={() => handleCountChange(breakoutRoomCount - 1)}
-                                    sx={{ color: '#00f7ff', p: 0 }}
-                                >
-                                    <KeyboardArrowDownIcon sx={{fontSize: "1vw"}} />
-                                </IconButton>
-                            </Box>
-                        </InputAdornment>
-                    )
-                  }}
+                //   InputProps={{
+                //     endAdornment: (
+                //         <InputAdornment position="end">
+                //             <Box sx={{ display: 'flex', flexDirection: 'column', mr: '-0.5vw', overflow: 'hidden' }}>
+                //                 <IconButton 
+                //                     size="small" 
+                //                     onClick={() => handleCountChange(breakoutRoomCount + 1)}
+                //                     sx={{ color: '#00f7ff', p: 0 }}
+                //                 >
+                //                     <KeyboardArrowUpIcon sx={{fontSize: "1vw"}} />
+                //                 </IconButton>
+                //                 <IconButton 
+                //                     size="small" 
+                //                     onClick={() => handleCountChange(breakoutRoomCount - 1)}
+                //                     sx={{ color: '#00f7ff', p: 0 }}
+                //                 >
+                //                     <KeyboardArrowDownIcon sx={{fontSize: "1vw"}} />
+                //                 </IconButton>
+                //             </Box>
+                //         </InputAdornment>
+                //     )
+                //   }}
                 />
             </Box>
             <Box sx={{ flexGrow: 1, overflowY: 'auto', pr: '0.5vw',
