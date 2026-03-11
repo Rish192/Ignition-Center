@@ -122,6 +122,36 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     const [searchTerm, setSearchTerm] = useState('');
     const [blockMiniHotspots, setBlockMiniHotspots] = useState(false); // to block mini_hotspots when participant/chat is opened
     const [blockMiniHotspots2, setBlockMiniHotspots2] = useState(false); // to block mini_hotspots when tiled screen is maximized
+
+    const [screenShareSupported, setScreenShareSupported] = useState(false);
+    const [screenShareReason, setScreenShareReason] = useState("");
+
+    const [profileOpen, setProfileOpen] = useState(false);
+    const [showLeavePopup, setShowLeavePopup] = useState(false);
+    const [showKickPopup, setShowKickPopup] = useState(false);
+    const [uidToKick, setUidToKick] = useState(null);
+
+    const [tutorialOpen, setTutorialOpen] = useState(false);
+    const [tutorialStep, setTutorialStep] = useState(1); // 1 to 4 for now as per Lokesh's meeting
+    const [meetingTimeLabel, setMeetingTimeLabel] = useState('');
+
+    const [screenshareUsers, setScreenshareUsers] = useState([]);
+    const [is2DScreenShared, setIs2DScreenShared] = useState(0);
+    const [screenShareFull, setScreenShareFull] = useState(false);
+
+    const [shareAspect, setShareAspect] = useState(() =>
+        (window.innerHeight > window.innerWidth ? '9 / 16' : '16 / 9')
+    );
+    const [waitingList, setWaitingList] = useState([]);
+    const [pollIntervalId, setPollIntervalId] = useState(null);
+    // --- WebSocket chat state ---
+    const [chatStatus, setChatStatus] = useState("disconnected"); // "connecting" | "connected" | "error"
+    const [chatMessages, setChatMessages] = useState([]);
+    const [chatInput, setChatInput] = useState("");
+    const [chatConnected, setChatConnected] = useState(false);
+    const chatSocketRef = useRef(null);
+    const chatScrollRef = useRef(null);
+    const screenUidRef = useRef(null);
     
     const [breakoutCreated, setBreakoutCreated] = useState(false);
     const [inBreakout, setInBreakout] = useState(false);
@@ -188,6 +218,12 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     };
 
     const joinBreakoutRoom = async (breakoutRoomName, currentTargets = []) => {
+        setScreenshareUsers([]);
+        if (activeContent === 'screen') setActiveContent(null);
+        if (screenshareOn) {
+            await stopScreenShareLocally("switching-to-breakout");
+            setScreenshareOn(false);
+        }
         roomTargetsRef.current = currentTargets;
         setBreakoutUsers([]);
         setCurrentBreakoutRoomName(breakoutRoomName);
@@ -272,10 +308,10 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 micOn: !currentMicMuted
             }]);
             
-            breakoutClient.on('user-joined', (user) => {
-                if (looksLikeScreen(user)) return;
+            breakoutClient.on('user-joined', async (user) => {
+                // if (looksLikeScreen(user)) return;
 
-                fetchAndSetName(user.uid);
+                await fetchAndSetName(user.uid, breakoutRoomName);
 
                 setBreakoutUsers(prev => {
                     const isActuallyInBreakout = roomTargetsRef.current.includes(user.uid);
@@ -291,16 +327,43 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 });
             });
             breakoutClient.on('user-left', (user) => {
+                // Check if the user who left was the one sharing their screen
+                if (String(user.uid) === String(screenUidRef.current) || String(user.uid) === String(screenUid)) {
+                    console.log("Cleaning up breakout screen share (User Left): ", user.uid);
+                    removeScreenshareUser(user.uid);
+                    setScreenTrack(null);
+                    setScreenshareOn(false);
+                    setScreenUid(null);
+                    setActiveContent(prev => prev === 'screen' ? null : prev);
+                }
                 setBreakoutUsers(prev => prev.filter(u => u.uid !== user.uid));
             });
             breakoutClient.on('user-published', async (user, mediaType) => {
-                if (looksLikeScreen(user)) return;
-
                 await breakoutClient.subscribe(user, mediaType);
 
-                if (!nameMap[user.uid]) {
-                    fetchAndSetName(user.uid);
+                let nm = nameMap[user.uid];
+                if (!nm) {
+                    nm = await fetchAndSetName(user.uid, breakoutRoomName);
                 }
+
+                const isScreen = looksLikeScreen(user) || (nm && String(nm).startsWith("Screen-"));
+                if (isScreen) {
+                    console.log("FOUND BREAKOUT SCREEN SHARE: ", nm, "MEDIA: ", mediaType);
+                    if (mediaType === 'video') {
+                        setScreenshareUsers([{
+                            uid: user.uid,
+                            videoTrack: user.videoTrack,
+                            isScreen: true
+                        }]);
+                        setScreenUid(user.uid);
+                        screenUidRef.current = user.uid;
+                        setActiveContent('screen');
+                    } else if (mediaType === 'audio') {
+                        user.audioTrack?.play();
+                    }
+                    return;
+                }
+
                 setBreakoutUsers(prev => prev.map(u => {
                     if (String(u.uid) !== String(user.uid)) return u;
                     return mediaType === 'video'
@@ -310,6 +373,20 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 if (mediaType === 'audio') user.audioTrack?.play();
             });
             breakoutClient.on('user-unpublished', (user, mediaType) => {
+                const nm = nameMap[user.uid];
+                const isScreen = looksLikeScreen(user) || (nm && String(nm).startsWith("Screen-"));
+                if (isScreen) {
+                    if (mediaType === 'video') {
+                        console.log("Cleaning up breakout screen share: ", user.uid);
+                        removeScreenshareUser(user.uid);
+                        setScreenTrack(null);
+                        setScreenshareOn(false);
+                        setScreenUid(null);
+                        setActiveContent((prev) => (prev === "screen" ? null : prev));
+                        setActiveContent(prev => prev === 'screen' ? null : prev);
+                    }
+                    return;
+                }
                 setBreakoutUsers(prev => prev.map(u => {
                     if (String(u.uid) !== String(user.uid)) return u;
                     if (mediaType === 'video') return { ...u, videoTrack: null };
@@ -323,9 +400,16 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
     };
 
     const returnToMainRoom = async () => {
+        setScreenshareUsers([]);
+        if (activeContent === 'screen') setActiveContent(null);
+
         if (!inBreakoutRef.current) {
             console.log("NOT IN BREAKOUT, NO NEED TO RETURN");
             return;
+        }
+        if (screenshareOn) {
+            await stopScreenShareLocally("switching-from-breakout");
+            setScreenshareOn(false);
         }
 
         const currentMicMuted = localTracksRef.current.audio ? localTracksRef.current.audio.muted : true;
@@ -436,35 +520,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             setUnreadParticipantCount(0);
         }
     }, [rosterTab]);
-
-    const [screenShareSupported, setScreenShareSupported] = useState(false);
-    const [screenShareReason, setScreenShareReason] = useState("");
-
-    const [profileOpen, setProfileOpen] = useState(false);
-    const [showLeavePopup, setShowLeavePopup] = useState(false);
-    const [showKickPopup, setShowKickPopup] = useState(false);
-    const [uidToKick, setUidToKick] = useState(null);
-
-    const [tutorialOpen, setTutorialOpen] = useState(false);
-    const [tutorialStep, setTutorialStep] = useState(1); // 1 to 4 for now as per Lokesh's meeting
-    const [meetingTimeLabel, setMeetingTimeLabel] = useState('');
-
-    const [screenshareUsers, setScreenshareUsers] = useState([]);
-    const [is2DScreenShared, setIs2DScreenShared] = useState(0);
-    const [screenShareFull, setScreenShareFull] = useState(false);
-
-    const [shareAspect, setShareAspect] = useState(() =>
-        (window.innerHeight > window.innerWidth ? '9 / 16' : '16 / 9')
-    );
-    const [waitingList, setWaitingList] = useState([]);
-    const [pollIntervalId, setPollIntervalId] = useState(null);
-    // --- WebSocket chat state ---
-    const [chatStatus, setChatStatus] = useState("disconnected"); // "connecting" | "connected" | "error"
-    const [chatMessages, setChatMessages] = useState([]);
-    const [chatInput, setChatInput] = useState("");
-    const [chatConnected, setChatConnected] = useState(false);
-    const chatSocketRef = useRef(null);
-    const chatScrollRef = useRef(null);
 
     useEffect(() => {
         onLeavePopupStateChange?.(showLeavePopup || showKickPopup);
@@ -745,15 +800,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         localTracksRef.current.screen = null;
         } catch {}
 
-        // try {
-        // document.querySelectorAll("video").forEach((el) => {
-        //     if (el.srcObject instanceof MediaStream) {
-        //     el.srcObject.getTracks().forEach((t) => { try { t.stop(); } catch {} });
-        //     el.srcObject = null;
-        //     }
-        // });
-        // } catch {}
-
         // Update UI state
         setScreenshareUsers((prev) => prev.filter((u) => u.uid !== screenUid));
         setScreenTrack(null);
@@ -763,13 +809,16 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         const leavingUid = screenUid;
         setScreenUid(null);
 
+        const targetRoomName = inBreakoutRef.current 
+            ? currentBreakoutRoomNameRef.current
+            : session?.roomName;
         // Inform backend this screen-uid left 
         try {
         if (leavingUid && session?.roomName) {
             await fetch(`${API_BASE}/api/leave`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ roomName: session.roomName, uid: leavingUid }),
+            body: JSON.stringify({ roomName: targetRoomName, uid: leavingUid }),
             });
         }
         } catch {}
@@ -807,10 +856,13 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         });
     };
     
-    const fetchAndSetName = async (uid) => {
-        if (!session?.roomName) return null;
+    const fetchAndSetName = async (uid, overrideRoomName = null) => {
+        const targetRoom = overrideRoomName || currentBreakoutRoomName || session?.roomName;
+        if (!targetRoom) return null;
+        // if (!session?.roomName) return null;
+
         const tryFetch = async () => {
-            const res = await fetch(`${API_BASE}/api/username?uid=${uid}&roomName=${encodeURIComponent(session.roomName)}`);
+            const res = await fetch(`${API_BASE}/api/username?uid=${uid}&roomName=${encodeURIComponent(targetRoom)}`);
             if (!res.ok) return null;
             const data = await res.json();
             const cleanGender =
@@ -818,9 +870,9 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                 ? String(data.gender).toLowerCase()
                 : null;
             return {
-            name: data.username || null,
-            gender: cleanGender,
-        };
+                name: data.username || null,
+                gender: cleanGender,
+            };
         };
         let profile = await tryFetch();
         if (!profile?.name) {
@@ -829,12 +881,12 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         }
         if (profile?.name) {
             setNameMap((prev) => ({ ...prev, [uid]: profile.name }));
-            }
-            if (profile?.gender) {
-            setGenderMap((prev) => ({ ...prev, [uid]: profile.gender }));
-            }
-            return profile?.name || null;
         }
+        if (profile?.gender) {
+            setGenderMap((prev) => ({ ...prev, [uid]: profile.gender }));
+        }
+        return profile?.name || null;
+    }
 
     const handleUserJoined = (user) => {
         fetchAndSetName(user.uid);
@@ -997,9 +1049,13 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             return;
         }
         if (screenshareOn) {
-        await stopScreenShareLocally("manual-stop");
+            await stopScreenShareLocally("manual-stop");
         } else {
             try {
+                const targetRoomName = inBreakoutRef.current 
+                    ? currentBreakoutRoomNameRef.current
+                    : session.roomName;
+                
                 if (screenUid) await endPreviousScreenShare(screenUid);
                 console.log("[SS] starting picker…");
                 const screenTracks = await AgoraRTC.createScreenVideoTrack({ encoderConfig: "1080p" }, "auto");
@@ -1017,7 +1073,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        roomName: session.roomName,
+                        roomName: targetRoomName,
                         uid: null,
                         userName: `Screen-${session.userName}`,
                         role: 'employee',
@@ -1053,7 +1109,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                     console.log("Screen share track ended by browser UI");
                     await stopScreenShareLocally("track-ended");
                 });
-                console.log("Screen share started with UID:", newScreenUid);
+                console.log(`Screen share started in room : ${targetRoomName} with UID:`, newScreenUid);
             } catch (err) {
                 console.error("[SS] start failed:", err);
                 setScreenshareOn(false);
