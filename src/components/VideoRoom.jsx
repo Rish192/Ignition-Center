@@ -3891,8 +3891,8 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                     </Box>
                                     <IconButton 
                                       size="small"
-                                    onClick={(e) => handleMenuClick(e, u)}
-                                    sx={{ visibility: (breakoutCreated && session?.isHost && String(u.uid) !== String(session?.uid)) ? 'visible' : 'hidden' }}
+                                      onClick={(e) => handleMenuClick(e, u)}
+                                      sx={{ visibility: (breakoutCreated && session?.isHost && String(u.uid) !== String(session?.uid)) ? 'visible' : 'hidden' }}
                                     >
                                         <MoreHorizIcon sx={{ fontSize: '1.05vw', opacity: 0.7 }} />
                                     </IconButton>
@@ -3936,6 +3936,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                                         sx={{
                                                             display: 'flex',
                                                             alignItems: 'center',
+                                                            justifyContent: 'space-between',
                                                             borderRadius: '8px',
                                                             px: '0.8vw',
                                                             py: '0.25vw',
@@ -3944,20 +3945,29 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                                             borderLeft: '2px solid #00f7ff' // Small indicator for breakout
                                                         }}
                                                     >
-                                                        <Avatar
-                                                            sx={{
-                                                                width: '1.2vw',
-                                                                height: '1.2vw',
-                                                                fontSize: '0.6vw',
-                                                                mr: '0.5vw',
-                                                                bgcolor: '#333'
-                                                            }}
+                                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                            <Avatar
+                                                                sx={{
+                                                                    width: '1.2vw',
+                                                                    height: '1.2vw',
+                                                                    fontSize: '0.6vw',
+                                                                    mr: '0.5vw',
+                                                                    bgcolor: '#333'
+                                                                }}
+                                                            >
+                                                                {getInitial(uname)}
+                                                            </Avatar>
+                                                            <Typography sx={{ fontSize: '0.75vw', opacity: 0.8 }}>
+                                                                {uname}
+                                                            </Typography>
+                                                        </Box>
+                                                        <IconButton 
+                                                            size="small"
+                                                            onClick={(e) => handleMenuClick(e, u)}
+                                                            //sx={{ visibility: breakoutCreated && session?.IsHost && String(u.uid) !== String(session?.uid) ? 'visible' : 'hidden' }}
                                                         >
-                                                            {getInitial(uname)}
-                                                        </Avatar>
-                                                        <Typography sx={{ fontSize: '0.75vw', opacity: 0.8 }}>
-                                                            {uname}
-                                                        </Typography>
+                                                            <MoreHorizIcon sx={{ fontSize: '1.05vw', opacity: 0.7, color: 'white' }} />
+                                                        </IconButton>
                                                     </Box>
                                                 );
                                             })}
@@ -4544,15 +4554,20 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         PaperProps={{ sx: {bgcolor: '#1a1a1a', color: 'white', border: '1px solid #333'}}}
     >
         <Typography sx={{p: 1, fontSize: '0.7vw', opacity: 0.5}}>MOVE TO: </Typography>
-        {Array.from({length: breakoutRoomCount}, (_, i) => i + 1).map((num) => (
-            <MenuItem 
-                key={num} 
-                onClick={() => handleMoveUser(num)}
-                sx={{fontSize: '0.8vw'}}
-            >
-                Room {num}
-            </MenuItem>
-        ))}
+        {Array.from({length: breakoutRoomCount}, (_, i) => i + 1).map((num) => {
+            const isCurrentRoom = roomAssignments[menuTargetUser?.uid] == num;
+            if (isCurrentRoom) return null; // Don't show the current room as an option
+
+            return (
+                <MenuItem 
+                    key={num} 
+                    onClick={() => handleMoveUser(num)}
+                    sx={{fontSize: '0.8vw'}}
+                >
+                    Room {num}
+                </MenuItem>
+            );
+        })}
     </Menu>
     </>
     )
