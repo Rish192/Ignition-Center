@@ -187,6 +187,15 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         }));
         handleMenuClose();
     };
+    const handleUnassignUser = () => {
+        if (!menuTargetUser) return;
+
+        chatSocketRef.current.send(JSON.stringify({
+            type: "trigger_unassign_user",
+            targetUid: menuTargetUser.uid
+        }));
+        handleMenuClose();
+    };
 
     useEffect(() => {
         if (usersInBreakout.length === 0) return; //no trying to silence if no one is in breakout
@@ -482,7 +491,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             }
             setBreakoutUsers([]);
             setSelectedUserIds([]);
-            setUsersInBreakout([]);
+            //setUsersInBreakout([]);
         } catch (e) {
             console.error("Failed to return to main: ", e);
         }
@@ -1842,6 +1851,27 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                         });
                         console.log("Current breakout users:", roomTargetsRef.current);
                     }
+                }
+                if (msg.type === "UNASSIGN_FROM_BREAKOUT") {
+                    console.log("Forced return to main room received");
+                    setUsersInBreakout(msg.allAssignedUids);
+
+                    setRoomAssignments(prev => {
+                        const next = {...prev};
+                        delete next[session.uid];
+                        return next;
+                    });
+                    returnToMainRoom();
+                }
+                if (msg.type === "USER_UNASSIGNED") {
+                    console.log(`User ${msg.uid} was unassigned`);
+
+                    setRoomAssignments(prev => {
+                        const next = {...prev};
+                        delete next[msg.uid];
+                        return next;
+                    });
+                    setUsersInBreakout(msg.allAssignedUids);
                 }
                 if (msg.type === "BREAKOUT_STOP") {
                     setBreakoutCreated(false);
@@ -3894,7 +3924,7 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
                                       onClick={(e) => handleMenuClick(e, u)}
                                       sx={{ visibility: (breakoutCreated && session?.isHost && String(u.uid) !== String(session?.uid)) ? 'visible' : 'hidden' }}
                                     >
-                                        <MoreHorizIcon sx={{ fontSize: '1.05vw', opacity: 0.7 }} />
+                                        <MoreHorizIcon sx={{ fontSize: '1.05vw', opacity: 0.7, color: 'white' }} />
                                     </IconButton>
                                 </Box>
                             </Box>
@@ -4551,8 +4581,19 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         anchorEl={anchorEl}
         open={openMenu}
         onClose={handleMenuClose}
-        PaperProps={{ sx: {bgcolor: '#1a1a1a', color: 'white', border: '1px solid #333'}}}
+        slotProps={{ sx: {bgcolor: '#1a1a1a', color: 'white', border: '1px solid #333'}}}
     >
+        {menuTargetUser && roomAssignments[menuTargetUser.uid] && (
+            <>
+                <MenuItem
+                    onClick={handleUnassignUser}
+                    sx={{fontSize: '0.8vw'}}
+                >
+                    Unassign
+                </MenuItem>
+                <Divider sx={{ borderColor: 'rgba(255,255,255,0.2)' }} />
+            </>
+        )}
         <Typography sx={{p: 1, fontSize: '0.7vw', opacity: 0.5}}>MOVE TO: </Typography>
         {Array.from({length: breakoutRoomCount}, (_, i) => i + 1).map((num) => {
             const isCurrentRoom = roomAssignments[menuTargetUser?.uid] == num;
