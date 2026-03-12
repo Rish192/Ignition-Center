@@ -43,8 +43,8 @@ import RemoveIcon from '@mui/icons-material/Remove';
 
 import { createFastboard, createUI } from '@netless/fastboard';
 
-const APP_IDENTIFIER = "3ABpgBYIEfGECI1C7bkhnA/vUyLy-UJb7tDCA";   // From Agora Console - Whiteboard 9LKW0HzNEfCwKrcQj8VaJw/sE2AINp4OAjMWQ
-const SDK_TOKEN = "NETLESSSDK_YWs9dFY4c1lPTjJLcEhzR0pUaSZub25jZT03NjdiMzllMC0xNjA5LTExZjEtODQwOC04ZDQyZWRiOTIxOWMmcm9sZT0wJnNpZz0xMmI4MGEyY2VmMzNmN2QyODQxYzVjNjc0OWNlNmExYzE1NDI4ZjllNzRiOWU0ZjAyYzVhZGM0ODhhNDdiMTEw";
+const APP_IDENTIFIER = "95micB31EfGL5cM4mEcaMA/DG4PsDPVGPqytA";   // From Agora Console - Whiteboard 9LKW0HzNEfCwKrcQj8VaJw/sE2AINp4OAjMWQ
+const SDK_TOKEN = "NETLESSSDK_YWs9UzJsREtGbjZ4X0d2eURNZyZub25jZT0yMzRjYzRiMC0xZGY2LTExZjEtYjQ1Ni0wNTUwOWRkNTJhYmUmcm9sZT0wJnNpZz0wMmNmMjk5NjNmY2ExYzQ1ZDhhYTE5ODhiZmIwN2JjMzg4M2U1ZTNlMzVhMmQ1MjhjNDU5NGYyYWUzZjc1ODA5";
 const REGION = "us-sv";
 
 const client = AgoraRTC.createClient({
@@ -3540,7 +3540,6 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
             </Box>
             
         </DialogContent>
-        
     </Dialog>
     {/* Participants/Chat Section */}
     {isResized && participantsOpen && (
@@ -4581,7 +4580,9 @@ export const VideoRoom = ({onLeavePopupStateChange, onBlockMiniHotspots, onLeave
         anchorEl={anchorEl}
         open={openMenu}
         onClose={handleMenuClose}
-        slotProps={{ sx: {bgcolor: '#1a1a1a', color: 'white', border: '1px solid #333'}}}
+        PaperProps={{
+                sx: {zIndex: 9999, bgcolor: '#1a1a1a', color: 'white', border: '1px solid #333'}
+        }}
     >
         {menuTargetUser && roomAssignments[menuTargetUser.uid] && (
             <>
